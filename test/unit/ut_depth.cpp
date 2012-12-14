@@ -2,6 +2,7 @@
 #define BOOST_TEST_MODULE liquibook_Depth
 #include <boost/test/unit_test.hpp>
 #include "book/depth.h"
+#include <iostream>
 
 namespace liquibook {
 
