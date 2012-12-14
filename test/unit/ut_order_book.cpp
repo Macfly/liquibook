@@ -83,7 +83,6 @@ public:
   }
 
   ~FillCheck() {
-    // TODO CHECK VALUES
     verify_filled();
   }
 
