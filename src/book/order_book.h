@@ -114,7 +114,7 @@ protected:
   /// @brief perform validation on the order
   /// @param order the order to validate
   /// @return true if the order is valid
-  virtual bool is_valid(OrderPtr order);
+  virtual bool is_valid(const OrderPtr& order);
 
 private:
   Bids bids_;
@@ -123,7 +123,7 @@ private:
   OrderBookListener* book_listener_;
   TypedOrderListener* order_listener_;
 
-  Price sort_price(OrderPtr order);
+  Price sort_price(const OrderPtr& order);
 };
 
 template <class OrderPtr>
@@ -494,14 +494,14 @@ OrderBook<OrderPtr>::populate_ask_depth_level_after(const Price& price,
 
 template <class OrderPtr>
 inline bool
-OrderBook<OrderPtr>::is_valid(OrderPtr )
+OrderBook<OrderPtr>::is_valid(const OrderPtr& )
 {
   return true;
 }
 
 template <class OrderPtr>
 inline Price
-OrderBook<OrderPtr>::sort_price(OrderPtr order)
+OrderBook<OrderPtr>::sort_price(const OrderPtr& order)
 {
   Price result_price = order->price();
   if (MARKET_ORDER_PRICE == result_price) {
