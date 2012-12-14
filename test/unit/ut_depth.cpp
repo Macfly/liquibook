@@ -249,4 +249,224 @@ BOOST_AUTO_TEST_CASE(TestIncreaseDecreaseBid)
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 559));
   BOOST_REQUIRE(verify_level(bid, 1232, 1, 151));
 }
+
+BOOST_AUTO_TEST_CASE(TestAddAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 100);
+  const DepthLevel* first_ask = depth.asks();
+  BOOST_REQUIRE(verify_level(first_ask, 1234, 1, 100));
 }
+
+BOOST_AUTO_TEST_CASE(TestAddAsks)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 100);
+  depth.add_ask(1234, 200);
+  depth.add_ask(1234, 300);
+  const DepthLevel* first_ask = depth.asks();
+  BOOST_REQUIRE(verify_level(first_ask, 1234, 3, 600));
+}
+
+BOOST_AUTO_TEST_CASE(TestAppendAskLevels)
+{
+  SizedDepth depth;
+  depth.add_ask(1236, 300);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1235, 400);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1232, 1, 100));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2, 600));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1, 300));
+}
+
+BOOST_AUTO_TEST_CASE(TestInsertAskLevels)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 800);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1236, 300);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1234, 900);
+  depth.add_ask(1231, 700);
+  depth.add_ask(1235, 400);
+  depth.add_ask(1231, 500);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1231, 2, 1200));
+  BOOST_REQUIRE(verify_level(ask, 1232, 1,  100));
+  BOOST_REQUIRE(verify_level(ask, 1234, 2, 1700));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2,  600));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1,  300));
+}
+
+BOOST_AUTO_TEST_CASE(TestInsertAskLevelsPast5)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 800);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1236, 300);
+  depth.add_ask(1231, 700);
+  depth.add_ask(1234, 900);
+  depth.add_ask(1235, 400);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1231, 500);
+  depth.add_ask(1230, 200);
+  depth.add_ask(1229, 200);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1229, 1,  200));
+  BOOST_REQUIRE(verify_level(ask, 1230, 1,  200));
+  BOOST_REQUIRE(verify_level(ask, 1231, 2, 1200));
+  BOOST_REQUIRE(verify_level(ask, 1232, 1,  100));
+  BOOST_REQUIRE(verify_level(ask, 1234, 2, 1700));
+}
+
+BOOST_AUTO_TEST_CASE(TestInsertAskLevelsTruncate5)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 800);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1236, 300);
+  depth.add_ask(1231, 700);
+  depth.add_ask(1234, 900);
+  depth.add_ask(1235, 400);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1231, 500);
+  depth.add_ask(1230, 200);
+  depth.add_ask(1238, 200);
+  depth.add_ask(1238, 250);
+  depth.add_ask(1237, 500);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1230, 1,  200));
+  BOOST_REQUIRE(verify_level(ask, 1231, 2, 1200));
+  BOOST_REQUIRE(verify_level(ask, 1232, 1,  100));
+  BOOST_REQUIRE(verify_level(ask, 1234, 2, 1700));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2,  600));
+}
+
+BOOST_AUTO_TEST_CASE(TestCloseAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 300);
+  depth.add_ask(1234, 500);
+  BOOST_REQUIRE(!depth.close_ask(1234, 300)); // Does not erase
+  const DepthLevel* first_ask = depth.asks();
+  BOOST_REQUIRE(verify_level(first_ask, 1234, 1, 500));
+}
+
+BOOST_AUTO_TEST_CASE(TestCloseEraseAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1233, 300);
+  depth.add_ask(1234, 500);
+  depth.add_ask(1233, 400);
+  BOOST_REQUIRE(!depth.close_ask(1233, 300)); // Does not erase
+  BOOST_REQUIRE(depth.close_ask(1233, 400)); // Erase
+  const DepthLevel* first_ask = depth.asks();
+  BOOST_REQUIRE(verify_level(first_ask, 1234, 1, 500));
+}
+
+BOOST_AUTO_TEST_CASE(TestAddCloseAddAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 300);
+  depth.close_ask(1234, 300);
+  depth.add_ask(1233, 200);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1233, 1, 200));
+  BOOST_REQUIRE(verify_level(ask, 0, 0, 0));
+}
+
+BOOST_AUTO_TEST_CASE(TestAddCloseAddHigherAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 300);
+  depth.close_ask(1234, 300);
+  depth.add_ask(1235, 200);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1235, 1, 200));
+  BOOST_REQUIRE(verify_level(ask, 0, 0, 0));
+}
+
+BOOST_AUTO_TEST_CASE(TestCloseAsksFreeLevels)
+{
+  SizedDepth depth;
+  depth.add_ask(1234, 800);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1236, 300);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1234, 900);
+  depth.add_ask(1231, 700);
+  depth.add_ask(1235, 400);
+  depth.add_ask(1231, 500);
+  depth.close_ask(1234, 900);
+  depth.close_ask(1232, 100);
+  depth.close_ask(1236, 100);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1231, 2, 1200));
+  BOOST_REQUIRE(verify_level(ask, 1234, 1,  800));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2,  600));
+  BOOST_REQUIRE(verify_level(ask,    0, 0,    0));
+  BOOST_REQUIRE(verify_level(ask,    0, 0,    0));
+  depth.add_ask(1233, 350);
+  depth.add_ask(1236, 300);
+  depth.add_ask(1231, 700);
+  ask = depth.asks();  // reset
+  BOOST_REQUIRE(verify_level(ask, 1231, 3, 1900));
+  BOOST_REQUIRE(verify_level(ask, 1233, 1,  350));
+  BOOST_REQUIRE(verify_level(ask, 1234, 1,  800));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2,  600));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1,  300));
+}
+
+BOOST_AUTO_TEST_CASE(TestIncreaseAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1236, 300);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1235, 400);
+  depth.increase_ask(1232, 37);
+  depth.increase_ask(1232, 41);
+  depth.increase_ask(1235, 201);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1232, 1, 178));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2, 801));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1, 300));
+}
+
+BOOST_AUTO_TEST_CASE(TestDecreaseAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1236, 300);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1235, 400);
+  depth.decrease_ask(1236, 37);
+  depth.decrease_ask(1236, 41);
+  depth.decrease_ask(1235, 201);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1232, 1, 100));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2, 399));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1, 222));
+}
+
+BOOST_AUTO_TEST_CASE(TestIncreaseDecreaseAsk)
+{
+  SizedDepth depth;
+  depth.add_ask(1236, 300);
+  depth.add_ask(1235, 200);
+  depth.add_ask(1232, 100);
+  depth.add_ask(1235, 400);
+  depth.increase_ask(1236, 37);
+  depth.decrease_ask(1235, 41);
+  depth.increase_ask(1232, 51);
+  depth.decrease_ask(1236, 41);
+  depth.increase_ask(1236, 201);
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1232, 1, 151));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2, 559));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1, 497));
+}
+
+} // namespace
