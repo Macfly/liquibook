@@ -1,0 +1,12 @@
+GNUmakefile*
+lib
+*.swp
+*.so
+*.so.*
+*.o
+.rvmrc
+.shobj
+.depend*
+ut_depth
+ut_order_book
+pt_order_book

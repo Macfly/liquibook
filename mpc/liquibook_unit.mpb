@@ -1,0 +1,4 @@
+project : liquibook, liquibook_test {
+  libs += boost_unit_test_framework
+  libpaths += /usr/local/lib
+}

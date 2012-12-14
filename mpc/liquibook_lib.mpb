@@ -1,0 +1,4 @@
+project : liquibook {
+  libout = $(LIQUIBOOK_ROOT)/lib
+}
+

@@ -1,0 +1,5 @@
+project : liquibook_base {
+  libs  += liquibook_book
+  after += liquibook_book
+}
+
