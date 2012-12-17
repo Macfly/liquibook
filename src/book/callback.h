@@ -56,6 +56,8 @@ public:
   Callback();
 
   static Callback<OrderPtr> accept(const OrderPtr& order);
+  static Callback<OrderPtr> reject(const OrderPtr& order,
+                                   const char* reason);
   static Callback<OrderPtr> fill(const OrderPtr& order,
                                  const Quantity& qty,
                                  const Price& price,
@@ -78,6 +80,18 @@ Callback<OrderPtr> Callback<OrderPtr>::accept(const OrderPtr& order)
   Callback<OrderPtr> result;
   result.type_ = cb_order_accept;
   result.order_ = order;
+  return result;
+}
+
+template <class OrderPtr>
+Callback<OrderPtr> Callback<OrderPtr>::reject(
+  const OrderPtr& order,
+  const char* reason)
+{
+  Callback<OrderPtr> result;
+  result.type_ = cb_order_reject;
+  result.order_ = order;
+  result.reject_reason_ = reason;
   return result;
 }
 
@@ -111,7 +125,7 @@ Callback<OrderPtr> Callback<OrderPtr>::cancel_reject(
   const char* reason)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_cancel;
+  result.type_ = cb_order_cancel_rejected;
   result.order_ = order;
   result.reject_reason_ = reason;
   return result;
