@@ -5,6 +5,8 @@
 #include <stdlib.h>
 
 using namespace liquibook;
+typedef impl::SimpleOrderBook SimpleOrderBook;
+typedef book::OrderBook<impl::SimpleOrder*> NoDepthOrderBook;
 
 template <class TypedOrderBook, class TypedOrder>
 int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
@@ -12,7 +14,6 @@ int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
   TypedOrder** pp_order = orders;
   do {
     order_book.add(*pp_order);
-// TODO optionally, provide listeners
     order_book.perform_callbacks();
     ++pp_order;
     if (*pp_order == NULL) {
@@ -23,9 +24,10 @@ int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
   return (pp_order - orders);
 }
 
+template <class TypedOrderBook>
 bool build_and_run_test(int dur_sec, int num_to_try) {
   std::cout << "trying run of " << num_to_try << " orders";
-  impl::SimpleOrderBook order_book;
+  TypedOrderBook order_book;
   impl::SimpleOrder** orders = new impl::SimpleOrder*[num_to_try + 1];
   liquibook::Price price = rand() % 12 + 1896;
   liquibook::Quantity qty = ((rand() % 10) + 1) * 100;
@@ -68,12 +70,26 @@ int main(int argc, const char* argv[])
   
   srand(dur_sec);
 
-  int num_to_try = dur_sec * 125000;
-  while (true) {
-    if (build_and_run_test(dur_sec, num_to_try)) {
-      break;
-    } else {
-      num_to_try *= 2;
+  {
+    std::cout << "testing order book without depth" << std::endl;
+    int num_to_try = dur_sec * 125000;
+    while (true) {
+      if (build_and_run_test<NoDepthOrderBook>(dur_sec, num_to_try)) {
+        break;
+      } else {
+        num_to_try *= 2;
+      }
+    }
+  }
+  {
+    std::cout << "testing order book with depth" << std::endl;
+    int num_to_try = dur_sec * 125000;
+    while (true) {
+      if (build_and_run_test<SimpleOrderBook>(dur_sec, num_to_try)) {
+        break;
+      } else {
+        num_to_try *= 2;
+      }
     }
   }
 }
