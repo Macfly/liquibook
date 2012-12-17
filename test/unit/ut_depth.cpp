@@ -32,12 +32,64 @@ bool verify_level(const DepthLevel*& level,
   return matched;
 }
 
+class ChangedChecker {
+public:
+  ChangedChecker(const SizedDepth& depth)
+  : depth_(depth)
+  {
+  }
+
+  bool verify_bid_stamps(ChangeId l0, ChangeId l1, ChangeId l2, 
+                  ChangeId l3, ChangeId l4)
+  {
+    return verify_side_stamps(depth_.bids(), l0, l1, l2, l3, l4);
+  }
+
+  bool verify_ask_stamps(ChangeId l0, ChangeId l1, ChangeId l2, 
+                  ChangeId l3, ChangeId l4)
+  {
+    return verify_side_stamps(depth_.asks(), l0, l1, l2, l3, l4);
+  }
+
+  bool verify_side_stamps(const DepthLevel* start, 
+                   ChangeId l0, ChangeId l1, ChangeId l2, 
+                   ChangeId l3, ChangeId l4)
+  {
+    bool matched = true;
+    if (start[0].last_change() != l0) {
+      std::cout << "change id[0] " << start[0].last_change() << std::endl;
+      matched = false;
+    }
+    if (start[1].last_change() != l1) {
+      std::cout << "change id[1] " << start[1].last_change() << std::endl;
+      matched = false;
+    }
+    if (start[2].last_change() != l2) {
+      std::cout << "change id[2] " << start[2].last_change() << std::endl;
+      matched = false;
+    }
+    if (start[3].last_change() != l3) {
+      std::cout << "change id[3] " << start[3].last_change() << std::endl;
+      matched = false;
+    }
+    if (start[4].last_change() != l4) {
+      std::cout << "change id[4] " << start[4].last_change() << std::endl;
+      matched = false;
+    }
+    return matched;
+  }
+  private:
+  const SizedDepth& depth_;
+};
+
 BOOST_AUTO_TEST_CASE(TestAddBid)
 {
   SizedDepth depth;
   depth.add_bid(1234, 100);
   const DepthLevel* first_bid = depth.bids();
   BOOST_REQUIRE(verify_level(first_bid, 1234, 1, 100));
+  ChangedChecker cc(depth);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestAddBids)
@@ -48,6 +100,8 @@ BOOST_AUTO_TEST_CASE(TestAddBids)
   depth.add_bid(1234, 300);
   const DepthLevel* first_bid = depth.bids();
   BOOST_REQUIRE(verify_level(first_bid, 1234, 3, 600));
+  ChangedChecker cc(depth);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 0, 0, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestAppendBidLevels)
@@ -61,40 +115,64 @@ BOOST_AUTO_TEST_CASE(TestAppendBidLevels)
   BOOST_REQUIRE(verify_level(bid, 1236, 1, 300));
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 600));
   BOOST_REQUIRE(verify_level(bid, 1232, 1, 100));
+  ChangedChecker cc(depth);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 3, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestInsertBidLevels)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 800);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 3, 3, 0, 0));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 4, 4, 4, 0));
   depth.add_bid(1234, 900);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 4, 5, 4, 0));
   depth.add_bid(1231, 700);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 4, 5, 4, 6));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 5, 4, 6));
   depth.add_bid(1231, 500);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 5, 4, 8));
+  depth.add_bid(1233, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 5, 9, 9));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1236, 1,  300));
   BOOST_REQUIRE(verify_level(bid, 1235, 2,  600));
   BOOST_REQUIRE(verify_level(bid, 1234, 2, 1700));
+  BOOST_REQUIRE(verify_level(bid, 1233, 1,  200));
   BOOST_REQUIRE(verify_level(bid, 1232, 1,  100));
-  BOOST_REQUIRE(verify_level(bid, 1231, 2, 1200));
 }
 
 BOOST_AUTO_TEST_CASE(TestInsertBidLevelsPast5)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 800);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 3, 3, 0, 0));
   depth.add_bid(1231, 700);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 3, 3, 4, 0));
   depth.add_bid(1234, 900);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 5, 3, 4, 0));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 6, 6, 6, 6));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 6));
   depth.add_bid(1231, 500);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 8));
   depth.add_bid(1230, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 8));
   depth.add_bid(1229, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 8));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1236, 1,  300));
   BOOST_REQUIRE(verify_level(bid, 1235, 2,  600));
@@ -106,18 +184,31 @@ BOOST_AUTO_TEST_CASE(TestInsertBidLevelsPast5)
 BOOST_AUTO_TEST_CASE(TestInsertBidLevelsTruncate5)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 800);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 3, 3, 0, 0));
   depth.add_bid(1231, 700);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 3, 3, 4, 0));
   depth.add_bid(1234, 900);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 5, 3, 4, 0));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 6, 6, 6, 6));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 6));
   depth.add_bid(1231, 500);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 8));
   depth.add_bid(1230, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 6, 6, 8));
   depth.add_bid(1238, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(9, 9, 9, 9, 9));
   depth.add_bid(1238, 250);
+  BOOST_REQUIRE(cc.verify_bid_stamps(10, 9, 9, 9, 9));
   depth.add_bid(1237, 500);
+  BOOST_REQUIRE(cc.verify_bid_stamps(10, 11, 11, 11, 11));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1238, 2,  450));
   BOOST_REQUIRE(verify_level(bid, 1237, 1,  500));
@@ -129,9 +220,13 @@ BOOST_AUTO_TEST_CASE(TestInsertBidLevelsTruncate5)
 BOOST_AUTO_TEST_CASE(TestCloseBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1234, 500);
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 0, 0, 0, 0));
   BOOST_REQUIRE(!depth.close_bid(1234, 300)); // Does not erase
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 0, 0, 0, 0));
   const DepthLevel* first_bid = depth.bids();
   BOOST_REQUIRE(verify_level(first_bid, 1234, 1, 500));
 }
@@ -139,21 +234,34 @@ BOOST_AUTO_TEST_CASE(TestCloseBid)
 BOOST_AUTO_TEST_CASE(TestCloseEraseBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1235, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 0, 0, 0, 0));
   depth.add_bid(1234, 500);
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 3, 0, 0, 0));
+  depth.add_bid(1233, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 3, 4, 0, 0));
   BOOST_REQUIRE(!depth.close_bid(1235, 300)); // Does not erase
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 3, 4, 0, 0));
   BOOST_REQUIRE(depth.close_bid(1235, 400)); // Erase
-  const DepthLevel* first_bid = depth.bids();
-  BOOST_REQUIRE(verify_level(first_bid, 1234, 1, 500));
+  BOOST_REQUIRE(cc.verify_bid_stamps(6, 6, 6, 0, 0));
+  const DepthLevel* bid = depth.bids();
+  BOOST_REQUIRE(verify_level(bid, 1234, 1, 500));
+  BOOST_REQUIRE(verify_level(bid, 1233, 1, 200));
 }
 
 BOOST_AUTO_TEST_CASE(TestAddCloseAddBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.close_bid(1234, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 0, 0, 0, 0));
   depth.add_bid(1233, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 0, 0, 0, 0));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1233, 1, 200));
   BOOST_REQUIRE(verify_level(bid, 0, 0, 0));
@@ -162,9 +270,13 @@ BOOST_AUTO_TEST_CASE(TestAddCloseAddBid)
 BOOST_AUTO_TEST_CASE(TestAddCloseAddHigherBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.close_bid(1234, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 0, 0, 0, 0));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 0, 0, 0, 0));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1235, 1, 200));
   BOOST_REQUIRE(verify_level(bid, 0, 0, 0));
@@ -173,26 +285,41 @@ BOOST_AUTO_TEST_CASE(TestAddCloseAddHigherBid)
 BOOST_AUTO_TEST_CASE(TestCloseBidsFreeLevels)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1234, 800);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 3, 3, 0, 0));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 4, 4, 4, 0));
   depth.add_bid(1234, 900);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 4, 5, 4, 0));
   depth.add_bid(1231, 700);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 4, 5, 4, 6));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 5, 4, 6));
   depth.add_bid(1231, 500);
-  depth.close_bid(1234, 900);
-  depth.close_bid(1232, 100);
-  depth.close_bid(1236, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 5, 4, 8));
+  depth.close_bid(1234, 900); // No erase
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 9, 4, 8));
+  depth.close_bid(1232, 100); // Erase
+  BOOST_REQUIRE(cc.verify_bid_stamps(3, 7, 9, 10, 10));
+  depth.close_bid(1236, 300); // Erase
+  BOOST_REQUIRE(cc.verify_bid_stamps(11, 11, 11, 11, 10));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1235, 2,  600));
   BOOST_REQUIRE(verify_level(bid, 1234, 1,  800));
   BOOST_REQUIRE(verify_level(bid, 1231, 2, 1200));
   BOOST_REQUIRE(verify_level(bid,    0, 0,    0));
   BOOST_REQUIRE(verify_level(bid,    0, 0,    0));
-  depth.add_bid(1233, 350);
-  depth.add_bid(1236, 300);
+  depth.add_bid(1233, 350); // Insert
+  BOOST_REQUIRE(cc.verify_bid_stamps(11, 11, 12, 12, 10));
+  depth.add_bid(1236, 300); // Insert
+  BOOST_REQUIRE(cc.verify_bid_stamps(13, 13, 13, 13, 13));
   depth.add_bid(1231, 700);
+  BOOST_REQUIRE(cc.verify_bid_stamps(13, 13, 13, 13, 14));
   bid = depth.bids();  // reset
   BOOST_REQUIRE(verify_level(bid, 1236, 1,  300));
   BOOST_REQUIRE(verify_level(bid, 1235, 2,  600));
@@ -204,13 +331,21 @@ BOOST_AUTO_TEST_CASE(TestCloseBidsFreeLevels)
 BOOST_AUTO_TEST_CASE(TestIncreaseBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 3, 0, 0));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 3, 0, 0));
   depth.increase_bid(1232, 37);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 5, 0, 0));
   depth.increase_bid(1232, 41);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 6, 0, 0));
   depth.increase_bid(1235, 201);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 7, 6, 0, 0));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1236, 1, 300));
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 801));
@@ -220,13 +355,21 @@ BOOST_AUTO_TEST_CASE(TestIncreaseBid)
 BOOST_AUTO_TEST_CASE(TestDecreaseBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 3, 0, 0));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 3, 0, 0));
   depth.decrease_bid(1236, 37);
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 4, 3, 0, 0));
   depth.decrease_bid(1236, 41);
+  BOOST_REQUIRE(cc.verify_bid_stamps(6, 4, 3, 0, 0));
   depth.decrease_bid(1235, 201);
+  BOOST_REQUIRE(cc.verify_bid_stamps(6, 7, 3, 0, 0));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1236, 1, 222));
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 399));
@@ -236,15 +379,25 @@ BOOST_AUTO_TEST_CASE(TestDecreaseBid)
 BOOST_AUTO_TEST_CASE(TestIncreaseDecreaseBid)
 {
   SizedDepth depth;
+  ChangedChecker cc(depth);
   depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
   depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
   depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 3, 0, 0));
   depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 3, 0, 0));
   depth.increase_bid(1236, 37);
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 4, 3, 0, 0));
   depth.decrease_bid(1235, 41);
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 6, 3, 0, 0));
   depth.increase_bid(1232, 51);
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 6, 7, 0, 0));
   depth.decrease_bid(1236, 41);
+  BOOST_REQUIRE(cc.verify_bid_stamps(8, 6, 7, 0, 0));
   depth.increase_bid(1236, 201);
+  BOOST_REQUIRE(cc.verify_bid_stamps(9, 6, 7, 0, 0));
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1236, 1, 497));
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 559));

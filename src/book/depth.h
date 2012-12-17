@@ -79,8 +79,15 @@ public:
   /// @return true if restoration is needed (previously was full)
   bool needs_ask_restoration(Price& restoration_price);
 
+  /// @brief has the depth changed since the last publish
+  bool changed();
+
+  /// @brief what was the last published change?
+  ChangeId last_published_change();
 private:
   DepthLevel levels_[SIZE*2];
+  ChangeId last_change_;
+  ChangeId last_published_change_;
 
   /// @brief find the level associated with the bid price
   /// @param price the price to find
@@ -110,6 +117,8 @@ private:
 
 template <int SIZE> 
 Depth<SIZE>::Depth()
+: last_change_(0),
+  last_published_change_(0)
 {
   memset(levels_, 0, sizeof(DepthLevel) * SIZE * 2);
 }
@@ -182,9 +191,12 @@ template <int SIZE>
 inline void
 Depth<SIZE>::add_bid(Price price, Quantity qty)
 {
+  ChangeId last_change_copy = last_change_;
   DepthLevel* level = find_bid(price);
   if (level) {
+    last_change_ = last_change_copy + 1; // Ensure incremented
     level->add_order(qty);
+    level->last_change(last_change_);
   }
 }
 
@@ -197,6 +209,8 @@ Depth<SIZE>::close_bid(Price price, Quantity qty)
     if (level->close_order(qty)) {
       erase_level(level, last_bid_level());
       return true;  // Level erased
+    } else {
+      level->last_change(++last_change_);
     }
   }
   return false;
@@ -209,6 +223,7 @@ Depth<SIZE>::increase_bid(Price price, Quantity qty_increase)
   DepthLevel* level = find_bid(price, false);
   if (level) {
     level->increase_qty(qty_increase);
+    level->last_change(++last_change_);
   }
   // Ignore if not found - may be beyond our depth size
 }
@@ -220,6 +235,7 @@ Depth<SIZE>::decrease_bid(Price price, Quantity qty_decrease)
   DepthLevel* level = find_bid(price, false);
   if (level) {
     level->decrease_qty(qty_decrease);
+    level->last_change(++last_change_);
   }
   // Ignore if not found - may be beyond our depth size
 }
@@ -228,9 +244,12 @@ template <int SIZE>
 inline void
 Depth<SIZE>::add_ask(Price price, Quantity qty)
 {
+  ChangeId last_change_copy = last_change_;
   DepthLevel* level = find_ask(price);
   if (level) {
+    last_change_ = last_change_copy + 1; // Ensure incremented
     level->add_order(qty);
+    level->last_change(last_change_);
   }
 }
 
@@ -243,6 +262,8 @@ Depth<SIZE>::close_ask(Price price, Quantity qty)
     if (level->close_order(qty)) {
       erase_level(level, last_ask_level());
       return true;  // Level erased
+    } else {
+      level->last_change(++last_change_);
     }
   }
   return false;
@@ -255,6 +276,7 @@ Depth<SIZE>::increase_ask(Price price, Quantity qty_increase)
   DepthLevel* level = find_ask(price, false);
   if (level) {
     level->increase_qty(qty_increase);
+    level->last_change(++last_change_);
   }
   // Ignore if not found - may be beyond our depth size
 }
@@ -266,6 +288,7 @@ Depth<SIZE>::decrease_ask(Price price, Quantity qty_decrease)
   DepthLevel* level = find_ask(price, false);
   if (level) {
     level->decrease_qty(qty_decrease);
+    level->last_change(++last_change_);
   }
   // Ignore if not found - may be beyond our depth size
 }
@@ -325,7 +348,7 @@ Depth<SIZE>::find_bid(Price price, bool should_create)
       break;
     // Else if the level is blank
     } else if (should_create && bid->price() == INVALID_LEVEL_PRICE) {
-      bid->init(price);
+      bid->init(price);  // Change ID will be assigned by caller
       break;  // Blank slot
     // Else if the level price is too low
     } else if (should_create && bid->price() < price) {
@@ -353,7 +376,7 @@ Depth<SIZE>::find_ask(Price price, bool should_create)
       break;
     // Else if the level is blank
     } else if (should_create && ask->price() == INVALID_LEVEL_PRICE) {
-      ask->init(price);
+      ask->init(price);  // Change ID will be assigned by caller
       break;  // Blank slot
     // Else if the level price is too high
     } else if (should_create && ask->price() > price) {
@@ -376,10 +399,17 @@ Depth<SIZE>::insert_level_before(DepthLevel* level,
 {
   // Back from end
   DepthLevel* current_level = last_level - 1;
+  // Increment only once
+  ++last_change_;
   // Last level to process is one passed in
   while (current_level >= level) {
     // Copy level to level one lower
     *(current_level + 1) = *current_level;
+    // If the level being copied is valid
+    if (current_level->price() != INVALID_LEVEL_PRICE) {
+      // Update change Id
+      (current_level + 1)->last_change(last_change_);
+    }
     // Move back one
     --current_level;
    }
@@ -390,16 +420,29 @@ template <int SIZE>
 void
 Depth<SIZE>::erase_level(DepthLevel* level, DepthLevel* last_level)
 {
+  // Increment once
+  ++last_change_;
+  DepthLevel* current_level = level;
   // Level to end
-  while (level < last_level) {
-    // Copy to current level from one lower
-    *level = *(level + 1);
+  while (current_level < last_level) {
+    // If this is the first level, or the level to be overwritten is valid
+    // (must force first level, when called already should be invalidated)
+    if ((current_level->price() != INVALID_LEVEL_PRICE) ||
+        (current_level == level)) {
+      // Copy to current level from one lower
+      *current_level = *(current_level + 1);
+      // Mark the current level as updated
+      current_level->last_change(last_change_);
+    }
     // Move forward one
-    ++level;
+    ++current_level;
   }
 
-  // Last level is blank
-  last_level->init(INVALID_LEVEL_PRICE);
+  if (last_level->price() != INVALID_LEVEL_PRICE) {
+    // Last level is blank
+    last_level->init(INVALID_LEVEL_PRICE);
+    last_level->last_change(last_change_);
+  }
 }
 
 } }
