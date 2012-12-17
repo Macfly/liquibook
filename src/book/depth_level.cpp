@@ -11,14 +11,16 @@ DepthLevel::DepthLevel()
 {
 }
 
-DepthLevel::DepthLevel(
-  Price price,
-  uint32_t order_count,
-  Quantity aggregate_qty)
-: price_(price),
-  order_count_(order_count),
-  aggregate_qty_(aggregate_qty)
+DepthLevel&
+DepthLevel::operator=(const DepthLevel& rhs)
 {
+  price_ = rhs.price_;
+  order_count_ = rhs.order_count_;
+  aggregate_qty_ = rhs.aggregate_qty_;
+  if (rhs.price_ != INVALID_LEVEL_PRICE) {
+    last_change_ = rhs.last_change_;
+  }
+  return *this;
 }
 
 const Price&
@@ -40,7 +42,6 @@ DepthLevel::order_count() const
 {
   return order_count_;
 }
-
 
 Quantity
 DepthLevel::aggregate_qty() const

@@ -9,6 +9,7 @@ namespace liquibook {
   typedef uint32_t Quantity;
   typedef uint32_t Cost;
   typedef uint32_t FillId;
+  typedef uint32_t ChangeId;
 
   extern const Price LIQUIBOOK_BASE_Export INVALID_LEVEL_PRICE;
   extern const Price LIQUIBOOK_BASE_Export MARKET_ORDER_PRICE;

@@ -8,13 +8,17 @@ namespace liquibook { namespace book {
 
 class LIQUIBOOK_BOOK_Export DepthLevel {
 public:
+  /// @brief construct
   DepthLevel();
-  DepthLevel(Price price,
-             uint32_t order_count,
-             Quantity aggregate_qty);
 
+  /// @brief assign
+  DepthLevel& operator=(const DepthLevel& rhs);
+
+  /// @brief get price
   const Price& price() const;
+  /// @brief get count
   uint32_t order_count() const;
+  /// @brief get aggregate quantity
   Quantity aggregate_qty() const;
 
   void init(Price price);
@@ -36,11 +40,23 @@ public:
   /// @return true if the level is now empty
   bool close_order(Quantity qty);
 
+  void last_change(ChangeId last_change) { last_change_ = last_change; }
+  ChangeId last_change() const { return last_change_; }
+  bool changed_since(ChangeId last_published_change) const;
+
 private:
   Price price_;
   uint32_t order_count_;
   Quantity aggregate_qty_;
+public:
+  ChangeId last_change_;
 };
+
+inline bool
+DepthLevel::changed_since(ChangeId last_published_change) const
+{
+  return last_change_ > last_published_change;
+}
 
 } }
 
