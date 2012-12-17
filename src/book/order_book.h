@@ -111,10 +111,13 @@ protected:
   void cross_orders(Tracker& inbound_tracker, 
                     Tracker& current_tracker);
 
-  /// @brief perform validation on the order
+  /// @brief perform validation on the order, and create reject callbacks if not
   /// @param order the order to validate
   /// @return true if the order is valid
   virtual bool is_valid(const OrderPtr& order);
+
+  /// @brief norify child classes one or more callbacks have been added
+  virtual void callbacks_added();
 
 private:
   Bids bids_;
@@ -186,42 +189,38 @@ template <class OrderPtr>
 inline bool
 OrderBook<OrderPtr>::add(const OrderPtr& order)
 {
+  bool matched = false;
+
   // If the order is invalid, exit
   if (!is_valid(order)) {
-    return false;
+    // reject created by is_valid
   } else {
     callbacks_.push_back(TypedCallback::accept(order));
-  }
+    Price order_price = sort_price(order);
 
-  Price order_price = sort_price(order);
+    Tracker inbound(order);
+    // Try to match with current orders
+    if (order->is_buy()) {
+      matched = match_order(inbound, order_price, asks_);
+    } else {
+      matched = match_order(inbound, order_price, bids_);
+    }
 
-  Tracker inbound(order);
-  bool matched;
-  // Try to match with current orders
-  if (order->is_buy()) {
-    matched = match_order(inbound, order_price, asks_);
-  } else {
-    matched = match_order(inbound, order_price, bids_);
-  }
-
-  // If the order matched
-  if (matched) {
-    // If order has no remaining open quantity
-    if (!inbound.open_qty()) {
-      return true;
+    // If order has remaining open quantity
+    if (inbound.open_qty()) {
+      // If this is a buy order
+      if (order->is_buy()) {
+        // Insert into bids
+        bids_.insert(std::make_pair(order_price, inbound));
+      // Else this is a sell order
+      } else {
+        // Insert into asks
+        asks_.insert(std::make_pair(order_price, inbound));
+      }
     }
   }
 
-  // If this is a buy order
-  if (order->is_buy()) {
-    // Insert into bids
-    bids_.insert(std::make_pair(order_price, inbound));
-  // Else this is a sell order
-  } else {
-    // Insert into asks
-    asks_.insert(std::make_pair(order_price, inbound));
-  }
-
+  callbacks_added();
   return matched;
 }
 
@@ -269,6 +268,7 @@ OrderBook<OrderPtr>::cancel(const OrderPtr& order)
   } else {
     callbacks_.push_back(TypedCallback::cancel_reject(order, "not found"));
   }
+  callbacks_added();
 }
 
 template <class OrderPtr>
@@ -378,6 +378,7 @@ OrderBook<OrderPtr>::cross_orders(Tracker& inbound_tracker,
                                            fill_qty,
                                            cross_price,
                                            fill_cost));
+  callbacks_added();
 }
 
 template <class OrderPtr>
@@ -494,9 +495,20 @@ OrderBook<OrderPtr>::populate_ask_depth_level_after(const Price& price,
 
 template <class OrderPtr>
 inline bool
-OrderBook<OrderPtr>::is_valid(const OrderPtr& )
+OrderBook<OrderPtr>::is_valid(const OrderPtr& order)
 {
-  return true;
+  if (order->order_qty() == 0) {
+    callbacks_.push_back(TypedCallback::reject(order, "size must be positive"));
+    return false;
+  } else {
+    return true;
+  }
+}
+
+template <class OrderPtr>
+inline void
+OrderBook<OrderPtr>::callbacks_added()
+{
 }
 
 template <class OrderPtr>
