@@ -1,7 +1,7 @@
 liquibook
 =========
 
-Open source limit order book matching engine from [OCI](ociweb.com)
+Open source limit order book matching engine from [OCI](http://ociweb.com)
 
 ## Features
 * Low-level components for order matching and aggregate depth tracking
