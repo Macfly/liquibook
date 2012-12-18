@@ -48,6 +48,44 @@ bool cancel_and_verify(OrderBook& order_book,
   return expected_state == order->state();
 }
 
+template <class OrderBook, class OrderPtr>
+bool replace_and_verify(OrderBook& order_book,
+                        const OrderPtr& order,
+                        int32_t size_change,
+                        Price new_price = PRICE_UNCHANGED,
+                        impl::OrderState expected_state = impl::os_accepted)
+{
+  // Calculate
+  Quantity expected_order_qty = order->order_qty() + size_change;
+  Quantity expected_open_qty = order->open_qty() + size_change;
+  Price expected_price = 
+      (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
+
+  // Perform
+  order_book.replace(order, size_change, new_price);
+  order_book.perform_callbacks();
+
+  // Verify
+  bool correct = true;
+  if (expected_state != order->state()) {
+    correct = false;
+    std::cout << "State " << order->state() << std::endl;
+  }
+  if (expected_order_qty != order->order_qty()) {
+    correct = false;
+    std::cout << "Order Qty " << order->order_qty() << std::endl;
+  }
+  if (expected_open_qty != order->open_qty()) {
+    correct = false;
+    std::cout << "Open Qty " << order->open_qty() << std::endl;
+  }
+  if (expected_price != order->price()) {
+    correct = false;
+    std::cout << "Price " << order->price() << std::endl;
+  }
+  return correct;
+}
+
 bool verify_depth(const DepthLevel& level,
                   const Price& price,
                   uint32_t count,
@@ -1864,10 +1902,14 @@ class SharedPtrOrderBook : public OrderBook<SimpleOrderPtr>
         cb.order_->accept();
         break;
       case TypedCallback::cb_order_fill:
-        cb.order_->fill(cb.fill_qty_, cb.fill_cost_, 0);
+        cb.order_->fill(cb.ref_qty_, cb.ref_cost_, 0);
         break;
       case TypedCallback::cb_order_cancel:
         cb.order_->cancel();
+        break;
+      case TypedCallback::cb_order_replace:
+        cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+        break;
       default:
         // Nothing
         break;
@@ -1989,4 +2031,147 @@ BOOST_AUTO_TEST_CASE(TestPopulateLevels)
   BOOST_REQUIRE(verify_depth(level, 1254, 3, 700));
 }
 
+BOOST_AUTO_TEST_CASE(TestReplaceSizeIncrease)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask1(false, 1252, 200);
+  SimpleOrder ask0(false, 1251, 300);
+  SimpleOrder bid1(true,  1251, 100);
+  SimpleOrder bid0(true,  1250, 100);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1251, 1, 300));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+
+  // Replace size
+  BOOST_REQUIRE(replace_and_verify(order_book, &ask0, 50));
+  BOOST_REQUIRE(replace_and_verify(order_book, &bid0, 25));
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 125));
+  BOOST_REQUIRE(dc.verify_ask(1251, 1, 350));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 }
+
+BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask1(false, 1252, 200);
+  SimpleOrder ask0(false, 1252, 300);
+  SimpleOrder bid1(true,  1251, 100);
+  SimpleOrder bid0(true,  1250, 100);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
+
+  // Replace size
+  BOOST_REQUIRE(replace_and_verify(order_book, &ask0, -150));
+  BOOST_REQUIRE(replace_and_verify(order_book, &bid0, -60));
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1,  40));
+  BOOST_REQUIRE(dc.verify_ask(1252, 2, 350));
+}
+
+BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask1(false, 1252, 200);
+  SimpleOrder ask0(false, 1252, 300);
+  SimpleOrder bid1(true,  1251, 400);
+  SimpleOrder bid0(true,  1250, 100);
+  SimpleOrder bid2(true,  1249, 700);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid2, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 400));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
+
+  // Partial Fill existing book
+  SimpleOrder cross_bid(true,  1252, 125);
+  SimpleOrder cross_ask(false, 1251, 100);
+  
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc1(&cross_bid, 125, 1252 * 125);
+    SimpleFillCheck fc2(&ask0,      125, 1252 * 125);
+    BOOST_REQUIRE(add_and_verify(order_book, &cross_bid, true, true));
+  ); }
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc1(&cross_ask, 100, 1251 * 100);
+    SimpleFillCheck fc2(&bid1,      100, 1251 * 100);
+    BOOST_REQUIRE(add_and_verify(order_book, &cross_ask, true, true));
+  ); }
+
+  // Verify quantity
+  BOOST_REQUIRE_EQUAL(175, ask0.open_qty());
+  BOOST_REQUIRE_EQUAL(300, bid1.open_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 300));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
+  BOOST_REQUIRE(dc.verify_ask(1252, 2, 375));
+
+  // Replace size - cancel
+  BOOST_REQUIRE(replace_and_verify(
+      order_book, &ask0, -175, PRICE_UNCHANGED, impl::os_cancelled)); 
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 300));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+
+  // Replace size - reduce level
+  BOOST_REQUIRE(replace_and_verify(
+      order_book, &bid1, -100, PRICE_UNCHANGED, impl::os_accepted)); 
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 200));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+
+  // Replace size - cancel and erase level
+  BOOST_REQUIRE(replace_and_verify(
+      order_book, &bid1, -200, PRICE_UNCHANGED, impl::os_cancelled)); 
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+}
+
+} // namespace

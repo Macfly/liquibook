@@ -95,5 +95,14 @@ SimpleOrder::cancel()
   }
 }
 
+void
+SimpleOrder::replace(Quantity new_qty, Price new_price)
+{
+  if (os_accepted == state_) {
+    order_qty_ = new_qty;
+    price_ = new_price;
+  }
+}
+
 } }
 

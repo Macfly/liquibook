@@ -27,30 +27,31 @@ SimpleOrderBook::perform_callback(SimpleCallback& cb)
       break;
 
     case SimpleCallback::cb_order_fill:
-      cb.order_->fill(cb.fill_qty_, cb.fill_cost_, ++fill_id_);
+      cb.order_->fill(cb.ref_qty_, cb.ref_cost_, ++fill_id_);
       // If the order is a limit order
       if (cb.order_->is_limit()) {
         // If this fill completed the order
         if (!cb.order_->open_qty()) {
           // If the filled order is a buy
           if (cb.order_->is_buy()) {
-            if (depth_.close_bid(cb.order_->price(), cb.fill_qty_)) {
+            if (depth_.close_bid(cb.order_->price(), cb.ref_qty_)) {
               restore_last_bid_level();
             }
           // Else the filled order is a sell
           } else {
-            if (depth_.close_ask(cb.order_->price(), cb.fill_qty_)) {
+            if (depth_.close_ask(cb.order_->price(), cb.ref_qty_)) {
               restore_last_ask_level();
             }
           }
         // Else this fill reduced the order
         } else {
+          int32_t quantity_delta = -cb.ref_qty_;
           // If the reduced order is a buy
           if (cb.order_->is_buy()) {
-            depth_.decrease_bid(cb.order_->price(), cb.fill_qty_);
+            depth_.change_qty_bid(cb.order_->price(), quantity_delta);
           // Else the reduced order is a sell
           } else {
-            depth_.decrease_ask(cb.order_->price(), cb.fill_qty_);
+            depth_.change_qty_ask(cb.order_->price(), quantity_delta);
           }
         }
       }
@@ -74,6 +75,24 @@ SimpleOrderBook::perform_callback(SimpleCallback& cb)
       }
       break;
 
+    case SimpleCallback::cb_order_replace:
+    {
+      int32_t qty_delta = cb.ref_qty_ - cb.order_->order_qty();
+      // If the quantity changed and the pricve did not
+      if (qty_delta && cb.order_->price() == cb.ref_price_) {
+        if (cb.order_->is_buy()) {
+          depth_.change_qty_bid(cb.order_->price(), qty_delta);
+        } else {
+          depth_.change_qty_ask(cb.order_->price(), qty_delta);
+        }
+      } else if (qty_delta < 0) {
+      }
+
+      // Modify the order itself
+      cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+      // If the order is a limit order
+      break;
+    }
     default:
       // Nothing
       break;

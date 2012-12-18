@@ -65,16 +65,18 @@ public:
   static Callback<OrderPtr> cancel(const OrderPtr& order);
   static Callback<OrderPtr> cancel_reject(const OrderPtr& order,
                                           const char* reason);
-  static Callback<OrderPtr> replace(const OrderPtr& order);
+  static Callback<OrderPtr> replace(const OrderPtr& order,
+                                    const Quantity& new_order_qty,
+                                    const Price& new_price);
   static Callback<OrderPtr> replace_reject(const OrderPtr& order,
                                            const char* reason);
 
   CbType type_;
   OrderPtr order_;
   const char* reject_reason_;
-  Price fill_price_;
-  Quantity fill_qty_;
-  Cost fill_cost_;
+  Quantity ref_qty_;
+  Price ref_price_;
+  Cost ref_cost_;
 };
 
 template <class OrderPtr>
@@ -107,9 +109,9 @@ Callback<OrderPtr> Callback<OrderPtr>::fill(const OrderPtr& order,
   Callback<OrderPtr> result;
   result.type_ = cb_order_fill;
   result.order_ = order;
-  result.fill_qty_ = qty;
-  result.fill_price_ = price;
-  result.fill_cost_ = cost;
+  result.ref_qty_ = qty;
+  result.ref_price_ = price;
+  result.ref_cost_ = cost;
   return result;
 }
 
@@ -138,17 +140,23 @@ template <class OrderPtr>
 Callback<OrderPtr>::Callback()
 : type_(cb_unknown),
   reject_reason_(NULL),
-  fill_qty_(0),
-  fill_cost_(0)
+  ref_qty_(0),
+  ref_price_(0),
+  ref_cost_(0)
 {
 }
 
 template <class OrderPtr>
-Callback<OrderPtr> Callback<OrderPtr>::replace(const OrderPtr& order)
+Callback<OrderPtr> Callback<OrderPtr>::replace(
+  const OrderPtr& order,
+  const Quantity& new_order_qty,
+  const Price& new_price)
 {
   Callback<OrderPtr> result;
   result.type_ = cb_order_replace;
   result.order_ = order;
+  result.ref_qty_ = new_order_qty;
+  result.ref_price_ = new_price;
   return result;
 }
 

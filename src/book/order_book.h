@@ -56,12 +56,12 @@ public:
 
   /// @brief replace an order in the book
   /// @param order the order to replace
-  /// @param new_price the new order price, or PRICE_UNCHANGED
   /// @param size_delta the change in size for the order (positive or negative)
+  /// @param new_price the new order price, or PRICE_UNCHANGED
   /// @return true if the replace resulted in a fill
   virtual bool replace(const OrderPtr& order, 
-                       Price new_price = PRICE_UNCHANGED,
-                       int32_t size_delta = SIZE_UNCHANGED);
+                       int32_t size_delta = SIZE_UNCHANGED,
+                       Price new_price = PRICE_UNCHANGED);
 
   /// @brief access the bids container
   const Bids& bids() const { return bids_; };
@@ -271,15 +271,24 @@ template <class OrderPtr>
 inline bool
 OrderBook<OrderPtr>::replace(
   const OrderPtr& order, 
-  Price /*new_price*/,
-  int32_t /*size_delta*/)
+  int32_t size_delta,
+  Price new_price)
 {
   bool found = false;
+
+  Quantity new_qty = order->order_qty() + size_delta;
+  Price price = (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
   if (order->is_buy()) {
     typename Bids::iterator bid;
     find_bid(order, bid);
     if (bid != bids_.end()) {
       found = true;
+      callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
+      // If the size change will close the order
+      if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
+        bids_.erase(bid); // Remove order
+        callbacks_.push_back(TypedCallback::cancel(order));
+      }
     }
   // Else the order to replace is a sell order
   } else {
@@ -287,13 +296,18 @@ OrderBook<OrderPtr>::replace(
     find_ask(order, ask);
     if (ask != asks_.end()) {
       found = true;
+      callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
+      // If the size change will close the order
+      if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
+        asks_.erase(ask); // Remove order
+        callbacks_.push_back(TypedCallback::cancel(order));
+      }
     }
   } 
 
-  if (found) {
+  if (!found) {
     callbacks_.push_back(TypedCallback::replace_reject(order, "not found"));
   } else {
-    callbacks_.push_back(TypedCallback::replace(order));
   }
   return false;
 }
@@ -420,7 +434,7 @@ OrderBook<OrderPtr>::perform_callback(TypedCallback& cb)
   if (cb.order_ && order_listener_) {
     switch (cb.type_) {
       case TypedCallback::cb_order_fill:
-        order_listener_->on_fill(cb.order_, cb.fill_qty_, cb.fill_cost_);
+        order_listener_->on_fill(cb.order_, cb.ref_qty_, cb.ref_cost_);
         break;
       case TypedCallback::cb_order_accept:
         order_listener_->on_accept(cb.order_);
@@ -435,7 +449,7 @@ OrderBook<OrderPtr>::perform_callback(TypedCallback& cb)
         order_listener_->on_cancel_reject(cb.order_, cb.reject_reason_);
         break;
       case TypedCallback::cb_order_replace:
-        order_listener_->on_replace(cb.order_);
+        order_listener_->on_replace(cb.order_, cb.ref_qty_, cb.ref_price_);
         break;
       case TypedCallback::cb_order_replace_reject:
         order_listener_->on_replace_reject(cb.order_, cb.reject_reason_);

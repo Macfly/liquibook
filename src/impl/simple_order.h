@@ -55,6 +55,11 @@ public:
   /// @brief exchange cancelled this order
   void cancel();
 
+  /// @brief exchange replaced this order
+  /// @param new_qty the new quantity
+  /// @param new_pricqty the new price
+  void replace(Quantity new_qty, Price new_price);
+
 private:
   OrderState state_;
   bool is_buy_;

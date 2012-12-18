@@ -15,7 +15,12 @@ public:
   virtual void on_reject(const OrderPtr& order, const char* reason) = 0;
 
   /// @brief callback for an order fill
-  virtual void on_fill(const OrderPtr& order, Quantity fill_qty, Cost cost) = 0;
+  /// @param order the filled order
+  /// @param fill_qty the quantity of this fill
+  /// @param fill_cost the cost of this fill (qty * price)
+  virtual void on_fill(const OrderPtr& order, 
+                       Quantity fill_qty, 
+                       Cost fill_cost) = 0;
 
   /// @brief callback for an order cancellation
   virtual void on_cancel(const OrderPtr& order) = 0;
@@ -24,7 +29,12 @@ public:
   virtual void on_cancel_reject(const OrderPtr& order, const char* reason) = 0;
 
   /// @brief callback for an order replace
-  virtual void on_replace(const OrderPtr& order) = 0;
+  /// @param order the replaced order
+  /// @param new_qty the updated order quantity (NOT open quantity)
+  /// @param new_price the updated order price
+  virtual void on_replace(const OrderPtr& order,
+                          Quantity new_qty, 
+                          Price new_price) = 0;
 
   /// @brief callback for an order replace rejection
   virtual void on_replace_reject(const OrderPtr& order, const char* reason) = 0;
