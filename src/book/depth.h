@@ -4,6 +4,7 @@
 #include "liquibook_book_export.h"
 #include "depth_level.h"
 #include "base/types.h"
+#include <cmath>
 
 namespace liquibook { namespace book {
 
@@ -42,10 +43,19 @@ public:
   /// @param qty the open quantity of the bid
   /// @return true if the close erased a visible level
   bool close_bid(Price price, Quantity qty);
+
+  /// @brief change quantity of a bid order
+  /// @param price the price level of the bid
+  /// @param qty_delta the change in open quantity of the bid (+ or -)
+  void change_qty_bid(Price price, int32_t qty_delta);
+  
+  // TODO REMOVE
   /// @brief increase size of a bid order
   /// @param price the price level of the bid
   /// @param qty_increase the change in open quantity of the bid
   void increase_bid(Price price, Quantity qty_increase);
+
+  // TODO REMOVE
   /// @brief decrease size of a bid order
   /// @param price the price level of the bid
   /// @param qty_decrease the change in open quantity of the bid
@@ -60,10 +70,19 @@ public:
   /// @param qty the open quantity of the ask
   /// @return true if the close erased a visible level
   bool close_ask(Price price, Quantity qty);
+
+  /// @brief change quantity of a ask order
+  /// @param price the price level of the ask
+  /// @param qty_delta the change in open quantity of the ask (+ or -)
+  void change_qty_ask(Price price, int32_t qty_delta);
+
+  // TODO REMOVE
   /// @brief increase size of a ask order
   /// @param price the price level of the ask
   /// @param qty_increase the change in open quantity of the ask
   void increase_ask(Price price, Quantity qty_increase);
+
+  // TODO REMOVE
   /// @brief decrease size of a ask order
   /// @param price the price level of the ask
   /// @param qty_decrease the change in open quantity of the ask
@@ -218,6 +237,22 @@ Depth<SIZE>::close_bid(Price price, Quantity qty)
 
 template <int SIZE> 
 inline void
+Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
+{
+  DepthLevel* level = find_bid(price, false);
+  if (level && qty_delta) {
+    if (qty_delta > 0) {
+      level->increase_qty(Quantity(qty_delta));
+    } else {
+      level->decrease_qty(Quantity(std::abs(qty_delta)));
+    }
+    level->last_change(++last_change_);
+  }
+  // Ignore if not found - may be beyond our depth size
+}
+  
+template <int SIZE> 
+inline void
 Depth<SIZE>::increase_bid(Price price, Quantity qty_increase)
 {
   DepthLevel* level = find_bid(price, false);
@@ -269,6 +304,22 @@ Depth<SIZE>::close_ask(Price price, Quantity qty)
   return false;
 }
 
+template <int SIZE> 
+inline void
+Depth<SIZE>::change_qty_ask(Price price, int32_t qty_delta)
+{
+  DepthLevel* level = find_ask(price, false);
+  if (level && qty_delta) {
+    if (qty_delta > 0) {
+      level->increase_qty(Quantity(qty_delta));
+    } else {
+      level->decrease_qty(Quantity(std::abs(qty_delta)));
+    }
+    level->last_change(++last_change_);
+  }
+  // Ignore if not found - may be beyond our depth size
+}
+  
 template <int SIZE> 
 inline void
 Depth<SIZE>::increase_ask(Price price, Quantity qty_increase)
