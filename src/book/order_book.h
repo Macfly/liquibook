@@ -10,6 +10,7 @@
 #include <deque>
 #include <iostream>
 #include <stdexcept>
+#include <cmath>
 
 namespace liquibook { namespace book {
 
@@ -120,6 +121,16 @@ protected:
   /// @param order the order to validate
   /// @return true if the order is valid
   virtual bool is_valid(const OrderPtr& order);
+
+  /// @brief perform validation on the order replace, and create reject 
+  ///   callbacks if not
+  /// @param order the order to validate
+  /// @param size_delta the change in size (+ or -)
+  /// @param new_price the new order price
+  /// @return true if the order replace is valid
+  virtual bool is_valid_replace(const OrderPtr& order,
+                                int32_t size_delta,
+                                Price new_price);
 
   /// @brief norify child classes one or more callbacks have been added
   virtual void callbacks_added();
@@ -274,42 +285,72 @@ OrderBook<OrderPtr>::replace(
   int32_t size_delta,
   Price new_price)
 {
-  bool found = false;
+  bool matched = false;
 
-  Quantity new_qty = order->order_qty() + size_delta;
-  Price price = (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
-  if (order->is_buy()) {
-    typename Bids::iterator bid;
-    find_bid(order, bid);
-    if (bid != bids_.end()) {
-      found = true;
-      callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
-      // If the size change will close the order
-      if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
-        bids_.erase(bid); // Remove order
-        callbacks_.push_back(TypedCallback::cancel(order));
-      }
-    }
-  // Else the order to replace is a sell order
+  // method will push reject callbacks
+  if (!is_valid_replace(order, size_delta, new_price)) {
+    // reject created by is_valid
   } else {
-    typename Asks::iterator ask;
-    find_ask(order, ask);
-    if (ask != asks_.end()) {
-      found = true;
-      callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
-      // If the size change will close the order
-      if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
-        asks_.erase(ask); // Remove order
-        callbacks_.push_back(TypedCallback::cancel(order));
-      }
-    }
-  } 
+    bool found = false;
+    bool size_decrease = size_delta < 0;
 
-  if (!found) {
-    callbacks_.push_back(TypedCallback::replace_reject(order, "not found"));
-  } else {
+    Quantity new_qty = order->order_qty() + size_delta;
+    Price price = (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
+    // If the order to replace is a buy order
+    if (order->is_buy()) {
+      typename Bids::iterator bid;
+      find_bid(order, bid);
+      // If the order was found
+      if (bid != bids_.end()) {
+        found = true;
+        // If this is a reduction beyond open quantity
+        if (size_decrease && (bid->second.open_qty() < std::abs(size_delta))) {
+          // Reject the replace
+          callbacks_.push_back(
+              TypedCallback::replace_reject(order, "not enough open qty"));
+        // Else this is fine
+        } else {
+          // Accept the replace
+          callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
+          // If the size change will close the order
+          if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
+            bids_.erase(bid); // Remove order
+            callbacks_.push_back(TypedCallback::cancel(order));
+          }
+        }
+      }
+    // Else the order to replace is a sell order
+    } else {
+      typename Asks::iterator ask;
+      find_ask(order, ask);
+      // If the order was found
+      if (ask != asks_.end()) {
+        found = true;
+        // If this is a reduction beyond open quantity
+        if (size_decrease && (ask->second.open_qty() < std::abs(size_delta))) {
+          // Reject the replace
+          callbacks_.push_back(
+              TypedCallback::replace_reject(order, "not enough open qty"));
+        // Else this is fine
+        } else {
+          // Accept the replace
+          callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
+          // If the size change will close the order
+          if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
+            asks_.erase(ask); // Remove order
+            callbacks_.push_back(TypedCallback::cancel(order));
+          }
+        }
+      }
+    } 
+
+    if (!found) {
+      callbacks_.push_back(TypedCallback::replace_reject(order, "not found"));
+    }
   }
-  return false;
+
+  callbacks_added();
+  return matched;
 }
 
 template <class OrderPtr>
@@ -537,6 +578,16 @@ OrderBook<OrderPtr>::is_valid(const OrderPtr& order)
   } else {
     return true;
   }
+}
+
+template <class OrderPtr>
+inline bool
+OrderBook<OrderPtr>::is_valid_replace(
+  const OrderPtr& /*order*/,
+  int32_t /*size_delta*/,
+  Price /*new_price*/)
+{
+  return true;
 }
 
 template <class OrderPtr>
