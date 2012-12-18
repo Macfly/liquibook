@@ -29,11 +29,11 @@ bool build_and_run_test(int dur_sec, int num_to_try) {
   std::cout << "trying run of " << num_to_try << " orders";
   TypedOrderBook order_book;
   impl::SimpleOrder** orders = new impl::SimpleOrder*[num_to_try + 1];
-  liquibook::Price price = rand() % 12 + 1896;
-  liquibook::Quantity qty = ((rand() % 10) + 1) * 100;
   
   for (int i = 0; i <= num_to_try; ++i) {
     bool is_buy((i % 2) == 0);
+    liquibook::Price price = (rand() % 12) + 1896;
+    liquibook::Quantity qty = ((rand() % 10) + 1) * 100;
     orders[i] = new impl::SimpleOrder(is_buy, price, qty);
   }
   orders[num_to_try] = NULL; // Final null
@@ -48,6 +48,8 @@ bool build_and_run_test(int dur_sec, int num_to_try) {
     std::cout << "Inserted " << count << " orders in " << dur_sec << " seconds"
               << ", or " << count / dur_sec << " insertions per sec"
               << std::endl;
+    uint32_t remain = order_book.bids().size() + order_book.asks().size();
+    std::cout << "Run matched " << count - remain << " orders" << std::endl;
     return true;
   } else {
     std::cout << " - not enough orders" << std::endl;
