@@ -55,8 +55,13 @@ public:
   virtual void cancel(const OrderPtr& order);
 
   /// @brief replace an order in the book
+  /// @param order the order to replace
+  /// @param new_price the new order price, or PRICE_UNCHANGED
+  /// @param size_delta the change in size for the order (positive or negative)
   /// @return true if the replace resulted in a fill
-  virtual bool replace(const OrderPtr& to_replace, const OrderPtr& new_order);
+  virtual bool replace(const OrderPtr& order, 
+                       Price new_price = PRICE_UNCHANGED,
+                       int32_t size_delta = SIZE_UNCHANGED);
 
   /// @brief access the bids container
   const Bids& bids() const { return bids_; };
@@ -119,6 +124,11 @@ protected:
   /// @brief norify child classes one or more callbacks have been added
   virtual void callbacks_added();
 
+  /// @brief find a bid
+  void find_bid(const OrderPtr& order, typename Bids::iterator& result);
+
+  /// @brief find an ask
+  void find_ask(const OrderPtr& order, typename Asks::iterator& result);
 private:
   Bids bids_;
   Asks asks_;
@@ -229,37 +239,23 @@ inline void
 OrderBook<OrderPtr>::cancel(const OrderPtr& order)
 {
   bool found = false;
-  // Find the order sort price
-  Price cancel_price = sort_price(order);
   // If the cancel is a buy order
   if (order->is_buy()) {
     typename Bids::iterator bid;
-    for (bid = bids_.find(cancel_price); bid != bids_.end(); ++bid) {
-      // If this is the correct bid
-      if (bid->second.ptr() == order) {
-        // Remove from container for cancel
-        bids_.erase(bid);
-        found = true;
-        break;
-      // Else if this bid's price is too low to match the cancel's price
-      } else if (bid->first < cancel_price) {
-        break; // No more possible
-      }
+    find_bid(order, bid);
+    if (bid != bids_.end()) {
+      // Remove from container for cancel
+      bids_.erase(bid);
+      found = true;
     }
   // Else the cancel is a sell order
   } else {
     typename Asks::iterator ask;
-    for (ask = asks_.find(cancel_price); ask != asks_.end(); ++ask) {
-      // If this is the correct ask
-      if (ask->second.ptr() == order) {
-        // Remove from container for cancel
-        asks_.erase(ask);
-        found = true;
-        break;
-      // Else if this ask's price is too high to match the cancel's price
-      } else if (ask->first > cancel_price) {
-        break; // No more possible
-      }
+    find_ask(order, ask);
+    if (ask != asks_.end()) {
+      // Remove from container for cancel
+      asks_.erase(ask);
+      found = true;
     }
   } 
   // If the cancel was found, issue callback
@@ -273,8 +269,32 @@ OrderBook<OrderPtr>::cancel(const OrderPtr& order)
 
 template <class OrderPtr>
 inline bool
-OrderBook<OrderPtr>::replace(const OrderPtr& /*to_replace*/, const OrderPtr& /*new_order*/)
+OrderBook<OrderPtr>::replace(
+  const OrderPtr& order, 
+  Price /*new_price*/,
+  int32_t /*size_delta*/)
 {
+  bool found = false;
+  if (order->is_buy()) {
+    typename Bids::iterator bid;
+    find_bid(order, bid);
+    if (bid != bids_.end()) {
+      found = true;
+    }
+  // Else the order to replace is a sell order
+  } else {
+    typename Asks::iterator ask;
+    find_ask(order, ask);
+    if (ask != asks_.end()) {
+      found = true;
+    }
+  } 
+
+  if (found) {
+    callbacks_.push_back(TypedCallback::replace_reject(order, "not found"));
+  } else {
+    callbacks_.push_back(TypedCallback::replace(order));
+  }
   return false;
 }
 
@@ -411,10 +431,10 @@ OrderBook<OrderPtr>::perform_callback(TypedCallback& cb)
       case TypedCallback::cb_order_cancel:
         order_listener_->on_cancel(cb.order_);
         break;
-      case TypedCallback::cb_order_cancel_rejected:
+      case TypedCallback::cb_order_cancel_reject:
         order_listener_->on_cancel_reject(cb.order_, cb.reject_reason_);
         break;
-      case TypedCallback::cb_order_replaced:
+      case TypedCallback::cb_order_replace:
         order_listener_->on_replace(cb.order_);
         break;
       case TypedCallback::cb_order_replace_reject:
@@ -510,6 +530,44 @@ inline void
 OrderBook<OrderPtr>::callbacks_added()
 {
 }
+
+template <class OrderPtr>
+inline void
+OrderBook<OrderPtr>::find_bid(
+  const OrderPtr& order,
+  typename Bids::iterator& result)
+{
+  // Find the order search price
+  Price search_price = sort_price(order);
+  for (result = bids_.find(search_price); result != bids_.end(); ++result) {
+    // If this is the correct bid
+    if (result->second.ptr() == order) {
+      break;
+    // Else if this bid's price is too low to match the search price
+    } else if (result->first < search_price) {
+      break; // No more possible
+    }
+  }
+}
+
+template <class OrderPtr>
+inline void
+OrderBook<OrderPtr>::find_ask(
+  const OrderPtr& order,
+  typename Asks::iterator& result)
+{
+  // Find the order search price
+  Price search_price = sort_price(order);
+  for (result = asks_.find(search_price); result != asks_.end(); ++result) {
+    // If this is the correct ask
+    if (result->second.ptr() == order) {
+      break;
+    // Else if this ask's price is too high to match the search price
+    } else if (result->first > search_price) {
+      break; // No more possible
+    }
+  }
+} 
 
 template <class OrderPtr>
 inline Price

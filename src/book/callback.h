@@ -21,14 +21,14 @@ class OrderBook;
 //     - trade
 //     - quote (2)
 //     - depth/bbo ?
-//   Order cancelled
+//   Order cancell
 //     - order cancel
 //     - quote
 //     - depth/bbo ?
 //   Order cancel reject
 //     - order cancel reject
-//   Order replaced
-//     - order replaced
+//   Order replace
+//     - order replace
 //     - fill (2) and/or quote (if not complete)
 //     - depth/bbo ?
 //   Order replace reject
@@ -45,8 +45,8 @@ public:
     cb_order_reject,
     cb_order_fill,
     cb_order_cancel,
-    cb_order_cancel_rejected,
-    cb_order_replaced,
+    cb_order_cancel_reject,
+    cb_order_replace,
     cb_order_replace_reject,
     cb_book_update,
     cb_depth_update,
@@ -65,6 +65,9 @@ public:
   static Callback<OrderPtr> cancel(const OrderPtr& order);
   static Callback<OrderPtr> cancel_reject(const OrderPtr& order,
                                           const char* reason);
+  static Callback<OrderPtr> replace(const OrderPtr& order);
+  static Callback<OrderPtr> replace_reject(const OrderPtr& order,
+                                           const char* reason);
 
   CbType type_;
   OrderPtr order_;
@@ -125,7 +128,7 @@ Callback<OrderPtr> Callback<OrderPtr>::cancel_reject(
   const char* reason)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_cancel_rejected;
+  result.type_ = cb_order_cancel_reject;
   result.order_ = order;
   result.reject_reason_ = reason;
   return result;
@@ -138,6 +141,27 @@ Callback<OrderPtr>::Callback()
   fill_qty_(0),
   fill_cost_(0)
 {
+}
+
+template <class OrderPtr>
+Callback<OrderPtr> Callback<OrderPtr>::replace(const OrderPtr& order)
+{
+  Callback<OrderPtr> result;
+  result.type_ = cb_order_replace;
+  result.order_ = order;
+  return result;
+}
+
+template <class OrderPtr>
+Callback<OrderPtr> Callback<OrderPtr>::replace_reject(
+  const OrderPtr& order,
+  const char* reason)
+{
+  Callback<OrderPtr> result;
+  result.type_ = cb_order_replace_reject;
+  result.order_ = order;
+  result.reject_reason_ = reason;
+  return result;
 }
 
 } }
