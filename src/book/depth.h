@@ -53,13 +53,13 @@ public:
   /// @brief increase size of a bid order
   /// @param price the price level of the bid
   /// @param qty_increase the change in open quantity of the bid
-  void increase_bid(Price price, Quantity qty_increase);
+  //void increase_bid(Price price, Quantity qty_increase);
 
   // TODO REMOVE
   /// @brief decrease size of a bid order
   /// @param price the price level of the bid
   /// @param qty_decrease the change in open quantity of the bid
-  void decrease_bid(Price price, Quantity qty_decrease);
+  //void decrease_bid(Price price, Quantity qty_decrease);
 
   /// @brief add a ask order
   /// @param price the price level of the ask
@@ -80,13 +80,13 @@ public:
   /// @brief increase size of a ask order
   /// @param price the price level of the ask
   /// @param qty_increase the change in open quantity of the ask
-  void increase_ask(Price price, Quantity qty_increase);
+  //void increase_ask(Price price, Quantity qty_increase);
 
   // TODO REMOVE
   /// @brief decrease size of a ask order
   /// @param price the price level of the ask
   /// @param qty_decrease the change in open quantity of the ask
-  void decrease_ask(Price price, Quantity qty_decrease);
+  //void decrease_ask(Price price, Quantity qty_decrease);
 
   /// @brief does this depth need bid restoration after level erasure
   /// @param restoration_price the price to restore after (out)
@@ -250,31 +250,7 @@ Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
   }
   // Ignore if not found - may be beyond our depth size
 }
-  
-template <int SIZE> 
-inline void
-Depth<SIZE>::increase_bid(Price price, Quantity qty_increase)
-{
-  DepthLevel* level = find_bid(price, false);
-  if (level) {
-    level->increase_qty(qty_increase);
-    level->last_change(++last_change_);
-  }
-  // Ignore if not found - may be beyond our depth size
-}
-
-template <int SIZE> 
-inline void
-Depth<SIZE>::decrease_bid(Price price, Quantity qty_decrease)
-{
-  DepthLevel* level = find_bid(price, false);
-  if (level) {
-    level->decrease_qty(qty_decrease);
-    level->last_change(++last_change_);
-  }
-  // Ignore if not found - may be beyond our depth size
-}
-
+ 
 template <int SIZE> 
 inline void
 Depth<SIZE>::add_ask(Price price, Quantity qty)
@@ -315,30 +291,6 @@ Depth<SIZE>::change_qty_ask(Price price, int32_t qty_delta)
     } else {
       level->decrease_qty(Quantity(std::abs(qty_delta)));
     }
-    level->last_change(++last_change_);
-  }
-  // Ignore if not found - may be beyond our depth size
-}
-  
-template <int SIZE> 
-inline void
-Depth<SIZE>::increase_ask(Price price, Quantity qty_increase)
-{
-  DepthLevel* level = find_ask(price, false);
-  if (level) {
-    level->increase_qty(qty_increase);
-    level->last_change(++last_change_);
-  }
-  // Ignore if not found - may be beyond our depth size
-}
-
-template <int SIZE> 
-inline void
-Depth<SIZE>::decrease_ask(Price price, Quantity qty_decrease)
-{
-  DepthLevel* level = find_ask(price, false);
-  if (level) {
-    level->decrease_qty(qty_decrease);
     level->last_change(++last_change_);
   }
   // Ignore if not found - may be beyond our depth size
