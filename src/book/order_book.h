@@ -148,6 +148,7 @@ private:
   TypedOrderListener* order_listener_;
 
   Price sort_price(const OrderPtr& order);
+  bool add_order(Tracker& order_tracker, Price order_price);
 };
 
 template <class OrderPtr>
@@ -220,27 +221,8 @@ OrderBook<OrderPtr>::add(const OrderPtr& order)
     Price order_price = sort_price(order);
 
     Tracker inbound(order);
-    // Try to match with current orders
-    if (order->is_buy()) {
-      matched = match_order(inbound, order_price, asks_);
-    } else {
-      matched = match_order(inbound, order_price, bids_);
-    }
-
-    // If order has remaining open quantity
-    if (inbound.open_qty()) {
-      // If this is a buy order
-      if (order->is_buy()) {
-        // Insert into bids
-        bids_.insert(std::make_pair(order_price, inbound));
-      // Else this is a sell order
-      } else {
-        // Insert into asks
-        asks_.insert(std::make_pair(order_price, inbound));
-      }
-    }
+    matched = add_order(inbound, order_price);
   }
-
   callbacks_added();
   return matched;
 }
@@ -644,6 +626,35 @@ OrderBook<OrderPtr>::sort_price(const OrderPtr& order)
                                       MARKET_ORDER_ASK_SORT_PRICE);
   }
   return result_price;
+}
+
+template <class OrderPtr>
+inline bool
+OrderBook<OrderPtr>::add_order(Tracker& inbound, Price order_price)
+{
+  bool matched = false;
+  OrderPtr& order = inbound.ptr();
+
+  // Try to match with current orders
+  if (order->is_buy()) {
+    matched = match_order(inbound, order_price, asks_);
+  } else {
+    matched = match_order(inbound, order_price, bids_);
+  }
+
+  // If order has remaining open quantity
+  if (inbound.open_qty()) {
+    // If this is a buy order
+    if (order->is_buy()) {
+      // Insert into bids
+      bids_.insert(std::make_pair(order_price, inbound));
+    // Else this is a sell order
+    } else {
+      // Insert into asks
+      asks_.insert(std::make_pair(order_price, inbound));
+    }
+  }
+  return matched;
 }
 
 } }
