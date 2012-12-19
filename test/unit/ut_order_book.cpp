@@ -2054,6 +2054,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncrease)
   BOOST_REQUIRE(replace_and_verify(order_book, &ask0, 50));
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, 25));
 
+  // Verify orders
+  BOOST_REQUIRE_EQUAL(125, bid0.order_qty());
+  BOOST_REQUIRE_EQUAL(350, ask0.order_qty());
+  
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 125));
@@ -2085,6 +2089,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
   BOOST_REQUIRE(replace_and_verify(order_book, &ask0, -150));
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, -60));
 
+  // Verify orders
+  BOOST_REQUIRE_EQUAL(40, bid0.order_qty());
+  BOOST_REQUIRE_EQUAL(150, ask0.order_qty());
+  
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
@@ -2145,6 +2153,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   BOOST_REQUIRE(replace_and_verify(
       order_book, &ask0, -175, PRICE_UNCHANGED, impl::os_cancelled)); 
 
+  // Verify orders
+  BOOST_REQUIRE_EQUAL(125, ask0.order_qty());
+  BOOST_REQUIRE_EQUAL(0, ask0.open_qty());
+
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 300));
@@ -2156,6 +2168,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   BOOST_REQUIRE(replace_and_verify(
       order_book, &bid1, -100, PRICE_UNCHANGED, impl::os_accepted)); 
 
+  // Verify orders
+  BOOST_REQUIRE_EQUAL(300, bid1.order_qty());
+  BOOST_REQUIRE_EQUAL(200, bid1.open_qty());
+
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 200));
@@ -2166,6 +2182,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   // Replace size - cancel and erase level
   BOOST_REQUIRE(replace_and_verify(
       order_book, &bid1, -200, PRICE_UNCHANGED, impl::os_cancelled)); 
+
+  // Verify orders
+  BOOST_REQUIRE_EQUAL(100, bid1.order_qty());
+  BOOST_REQUIRE_EQUAL(0, bid1.open_qty());
 
   // Verify depth
   dc.reset();
@@ -2215,6 +2235,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseTooMuch)
   order_book.replace(&ask0, -150, PRICE_UNCHANGED);
   order_book.perform_callbacks();
 
+  // Verify orders
+  BOOST_REQUIRE_EQUAL(100, ask0.open_qty());
+  BOOST_REQUIRE_EQUAL(300, ask0.order_qty());
+
   // Verify open quantity unchanged
   BOOST_REQUIRE_EQUAL(impl::os_accepted, ask0.state());
   BOOST_REQUIRE_EQUAL(100, ask0.open_qty());
@@ -2262,4 +2286,135 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncreaseDecrease)
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 }
 
+BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask0(false, 1253, 300);
+  SimpleOrder ask1(false, 1252, 200);
+  SimpleOrder bid1(true,  1251, 140);
+  SimpleOrder bid0(true,  1250, 120);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+
+  // Replace price increase
+  BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1251));
+
+  // Verify price change in book
+  SimpleOrderBook::Bids::const_iterator bid = order_book.bids().begin();
+  BOOST_REQUIRE_EQUAL(1251, bid->first);
+  BOOST_REQUIRE_EQUAL(&bid1, bid->second.ptr());
+  BOOST_REQUIRE_EQUAL(1251, (++bid)->first);
+  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
+  BOOST_REQUIRE(order_book.bids().end() == ++bid);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1251, bid0.price());
+  BOOST_REQUIRE_EQUAL(120, bid0.order_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 2, 260));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+
+  // Replace price decrease
+  BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1250));
+
+  // Verify price change in book
+  bid = order_book.bids().begin();
+  BOOST_REQUIRE_EQUAL(1251, bid->first);
+  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
+  BOOST_REQUIRE_EQUAL(1250, (++bid)->first);
+  BOOST_REQUIRE_EQUAL(&bid1, bid->second.ptr());
+  BOOST_REQUIRE(order_book.bids().end() == ++bid);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1250, bid1.price());
+  BOOST_REQUIRE_EQUAL(140, bid1.order_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 120));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+}
+
+BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask0(false, 1253, 300);
+  SimpleOrder ask1(false, 1252, 200);
+  SimpleOrder bid1(true,  1251, 140);
+  SimpleOrder bid0(true,  1250, 120);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+
+  // Replace price increase 1252 -> 1253
+  BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1253));
+
+  // Verify price change in book
+  SimpleOrderBook::Asks::const_iterator ask = order_book.asks().begin();
+  BOOST_REQUIRE_EQUAL(1253, ask->first);
+  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
+  BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
+  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
+  BOOST_REQUIRE(order_book.asks().end() == ++ask);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1253, ask1.price());
+  BOOST_REQUIRE_EQUAL(200, ask1.order_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1253, 2, 500));
+
+  // Replace price decrease 1253 -> 1252
+  BOOST_REQUIRE(replace_and_verify(order_book, &ask0, SIZE_UNCHANGED, 1252));
+
+  // Verify price change in book
+  ask = order_book.asks().begin();
+  BOOST_REQUIRE_EQUAL(1252, ask->first);
+  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
+  BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
+  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
+  BOOST_REQUIRE(order_book.asks().end() == ++ask);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1252, ask0.price());
+  BOOST_REQUIRE_EQUAL(300, ask0.order_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 300));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
+}
 } // namespace

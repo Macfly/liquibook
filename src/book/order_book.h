@@ -275,9 +275,11 @@ OrderBook<OrderPtr>::replace(
   } else {
     bool found = false;
     bool size_decrease = size_delta < 0;
+    bool price_change = new_price && (new_price != order->price());
 
-    Quantity new_qty = order->order_qty() + size_delta;
     Price price = (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
+    Quantity new_order_qty = order->order_qty() + size_delta;
+
     // If the order to replace is a buy order
     if (order->is_buy()) {
       typename Bids::iterator bid;
@@ -285,6 +287,8 @@ OrderBook<OrderPtr>::replace(
       // If the order was found
       if (bid != bids_.end()) {
         found = true;
+        Quantity new_open_qty = bid->second.open_qty() + size_delta;
+
         // If this is a reduction beyond open quantity
         if (size_decrease && (bid->second.open_qty() < std::abs(size_delta))) {
           // Reject the replace
@@ -293,11 +297,15 @@ OrderBook<OrderPtr>::replace(
         // Else this is fine
         } else {
           // Accept the replace
-          callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
+          callbacks_.push_back(
+              TypedCallback::replace(order, new_order_qty, price));
           // If the size change will close the order
-          if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
+          if (!new_open_qty) {
             bids_.erase(bid); // Remove order
             callbacks_.push_back(TypedCallback::cancel(order));
+          } else if (price_change) {
+            bids_.erase(bid); // Remove order
+            add_order(bid->second, new_price);
           }
         }
       }
@@ -308,6 +316,8 @@ OrderBook<OrderPtr>::replace(
       // If the order was found
       if (ask != asks_.end()) {
         found = true;
+        Quantity new_open_qty = ask->second.open_qty() + size_delta;
+
         // If this is a reduction beyond open quantity
         if (size_decrease && (ask->second.open_qty() < std::abs(size_delta))) {
           // Reject the replace
@@ -316,11 +326,15 @@ OrderBook<OrderPtr>::replace(
         // Else this is fine
         } else {
           // Accept the replace
-          callbacks_.push_back(TypedCallback::replace(order, new_qty, price));
+          callbacks_.push_back(
+              TypedCallback::replace(order, new_order_qty, price));
           // If the size change will close the order
-          if ((size_delta < 0) && (order->open_qty() == Quantity(-size_delta))) {
+          if (!new_open_qty) {
             asks_.erase(ask); // Remove order
             callbacks_.push_back(TypedCallback::cancel(order));
+          } else if (price_change) {
+            asks_.erase(ask); // Remove order
+            add_order(ask->second, new_price);
           }
         }
       }
