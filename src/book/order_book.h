@@ -384,6 +384,7 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
       break;
     }
   }
+
   return matched;
 }
 
@@ -441,11 +442,11 @@ OrderBook<OrderPtr>::cross_orders(Tracker& inbound_tracker,
   Cost fill_cost = fill_qty * cross_price;
   inbound_tracker.fill(fill_qty);
   current_tracker.fill(fill_qty);
-  callbacks_.push_back(TypedCallback::fill(inbound_tracker.ptr(),
+  callbacks_.push_back(TypedCallback::fill(current_tracker.ptr(),
                                            fill_qty,
                                            cross_price,
                                            fill_cost));
-  callbacks_.push_back(TypedCallback::fill(current_tracker.ptr(),
+  callbacks_.push_back(TypedCallback::fill(inbound_tracker.ptr(),
                                            fill_qty,
                                            cross_price,
                                            fill_cost));
@@ -535,7 +536,7 @@ OrderBook<OrderPtr>::populate_bid_depth_level_after(const Price& price,
     do {
       // Add this order to the result
       level.add_order(bid->second.open_qty());
-    } while ((++bid)->first == after_price);
+    } while ((++bid != bids_.end()) && bid->first == after_price);
   // Else there is no price after
   } else {
     level.init(0);
@@ -557,7 +558,7 @@ OrderBook<OrderPtr>::populate_ask_depth_level_after(const Price& price,
     do {
       // Add this order to the result
       level.add_order(ask->second.open_qty());
-    } while ((++ask)->first == after_price);
+    } while ((++ask != asks_.end()) && ask->first == after_price);
   // Else there is no price after
   } else {
     level.init(0);

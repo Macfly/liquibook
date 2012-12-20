@@ -25,14 +25,38 @@ int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
 }
 
 template <class TypedOrderBook>
-bool build_and_run_test(int dur_sec, int num_to_try) {
+bool build_and_run_test(int dur_sec, uint32_t num_to_try) {
   std::cout << "trying run of " << num_to_try << " orders";
   TypedOrderBook order_book;
   impl::SimpleOrder** orders = new impl::SimpleOrder*[num_to_try + 1];
   
-  for (int i = 0; i <= num_to_try; ++i) {
+  for (uint32_t i = 0; i <= num_to_try; ++i) {
     bool is_buy((i % 2) == 0);
-    liquibook::Price price = (rand() % 12) + 1896;
+    uint delta = is_buy ? 1880 : 1884;
+    // ASK 1893
+    // ASK 1892
+    // ASK 1891
+    // ASK 1890
+    // ASK 1889 crossable
+    // ASK 1888 crossable
+    // ASK 1887 crossable
+    // ASK 1886 crossable
+    // ASK 1885 crossable
+    // ASK 1884 crossable
+
+    // BID 1889 crossable
+    // BID 1888 crossable
+    // BID 1887 crossable
+    // BID 1886 crossable
+    // BID 1885 crossable
+    // BID 1884 crossable
+    // BID 1883
+    // BID 1882
+    // BID 1881
+    // BID 1880
+
+    liquibook::Price price = (rand() % 10) + delta;
+    
     liquibook::Quantity qty = ((rand() % 10) + 1) * 100;
     orders[i] = new impl::SimpleOrder(is_buy, price, qty);
   }
