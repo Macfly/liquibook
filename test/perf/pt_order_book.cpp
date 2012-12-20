@@ -5,7 +5,8 @@
 #include <stdlib.h>
 
 using namespace liquibook;
-typedef impl::SimpleOrderBook SimpleOrderBook;
+typedef impl::SimpleOrderBook<5> DepthOrderBook;
+typedef impl::SimpleOrderBook<1> BboOrderBook;
 typedef book::OrderBook<impl::SimpleOrder*> NoDepthOrderBook;
 
 template <class TypedOrderBook, class TypedOrder>
@@ -25,7 +26,7 @@ int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
 }
 
 template <class TypedOrderBook>
-bool build_and_run_test(int dur_sec, uint32_t num_to_try) {
+bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
   std::cout << "trying run of " << num_to_try << " orders";
   TypedOrderBook order_book;
   impl::SimpleOrder** orders = new impl::SimpleOrder*[num_to_try + 1];
@@ -85,7 +86,7 @@ bool build_and_run_test(int dur_sec, uint32_t num_to_try) {
 
 int main(int argc, const char* argv[])
 {
-  int dur_sec = 3;
+  uint32_t dur_sec = 3;
   if (argc > 1) {
     dur_sec = atoi(argv[1]);
     if (!dur_sec) { 
@@ -96,9 +97,22 @@ int main(int argc, const char* argv[])
   
   srand(dur_sec);
 
+/*
+  {
+    std::cout << "testing order book with bbo" << std::endl;
+    uint32_t num_to_try = dur_sec * 125000;
+    while (true) {
+      if (build_and_run_test<BboOrderBook>(dur_sec, num_to_try)) {
+        break;
+      } else {
+        num_to_try *= 2;
+      }
+    }
+  }
+*/
   {
     std::cout << "testing order book without depth" << std::endl;
-    int num_to_try = dur_sec * 125000;
+    uint32_t num_to_try = dur_sec * 125000;
     while (true) {
       if (build_and_run_test<NoDepthOrderBook>(dur_sec, num_to_try)) {
         break;
@@ -109,9 +123,9 @@ int main(int argc, const char* argv[])
   }
   {
     std::cout << "testing order book with depth" << std::endl;
-    int num_to_try = dur_sec * 125000;
+    uint32_t num_to_try = dur_sec * 125000;
     while (true) {
-      if (build_and_run_test<SimpleOrderBook>(dur_sec, num_to_try)) {
+      if (build_and_run_test<DepthOrderBook>(dur_sec, num_to_try)) {
         break;
       } else {
         num_to_try *= 2;

@@ -13,10 +13,10 @@ using book::DepthLevel;
 using book::OrderBook;
 using book::OrderTracker;
 using impl::SimpleOrder;
-using impl::SimpleOrderBook;
 
 typedef OrderTracker<SimpleOrder*> SimpleTracker;
-typedef SimpleOrderBook::SimpleDepth SimpleDepth;
+typedef impl::SimpleOrderBook<5> SimpleOrderBook;
+typedef typename SimpleOrderBook::SimpleDepth SimpleDepth;
 
 template <class OrderBook, class OrderPtr>
 bool add_and_verify(OrderBook& order_book,
