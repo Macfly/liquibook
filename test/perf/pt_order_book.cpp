@@ -32,28 +32,28 @@ bool build_and_run_test(int dur_sec, uint32_t num_to_try) {
   
   for (uint32_t i = 0; i <= num_to_try; ++i) {
     bool is_buy((i % 2) == 0);
-    uint delta = is_buy ? 1880 : 1986;
-    // ASK 1995
-    // ASK 1994
-    // ASK 1993
-    // ASK 1992
-    // ASK 1991
-    // ASK 1990
-    // ASK 1989 crossable
-    // ASK 1988 crossable
-    // ASK 1987 crossable
-    // ASK 1986 crossable
+    uint delta = is_buy ? 1880 : 1884;
+    // ASK 1893
+    // ASK 1892
+    // ASK 1891
+    // ASK 1890
+    // ASK 1889 crossable
+    // ASK 1888 crossable
+    // ASK 1887 crossable
+    // ASK 1886 crossable
+    // ASK 1885 crossable
+    // ASK 1884 crossable
 
-    // BID 1989 crossable
-    // BID 1988 crossable
-    // BID 1987 crossable
-    // BID 1986 crossable
-    // BID 1985
-    // BID 1984
-    // BID 1983
-    // BID 1982
-    // BID 1981
-    // BID 1980
+    // BID 1889 crossable
+    // BID 1888 crossable
+    // BID 1887 crossable
+    // BID 1886 crossable
+    // BID 1885 crossable
+    // BID 1884 crossable
+    // BID 1883
+    // BID 1882
+    // BID 1881
+    // BID 1880
 
     liquibook::Price price = (rand() % 10) + delta;
     
