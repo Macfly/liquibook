@@ -121,10 +121,14 @@ public:
   bool needs_ask_restoration(Price& restoration_price);
 
   /// @brief has the depth changed since the last publish
-  bool changed();
+  bool changed() const;
 
   /// @brief what was the last published change?
-  ChangeId last_published_change();
+  ChangeId last_published_change() const;
+
+  /// @beief note the if of last published change
+  void published();
+
 private:
   DepthLevel levels_[SIZE*2];
   ChangeId last_change_;
@@ -510,6 +514,29 @@ Depth<SIZE>::erase_level(DepthLevel* level, DepthLevel* last_level)
     last_level->init(INVALID_LEVEL_PRICE);
     last_level->last_change(last_change_);
   }
+}
+
+template <int SIZE> 
+bool
+Depth<SIZE>::changed() const
+{
+  return last_change_ > last_published_change_;
+}
+
+
+template <int SIZE> 
+ChangeId
+Depth<SIZE>::last_published_change() const
+{
+  return last_published_change_;
+}
+
+
+template <int SIZE> 
+void
+Depth<SIZE>::published()
+{
+  last_published_change_ = last_change_;
 }
 
 } }
