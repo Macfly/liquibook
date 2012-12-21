@@ -62,7 +62,10 @@ DepthLevel::close_order(Quantity qty)
 {
   bool empty = false;
   // If this is the last order, reset the level
-  if (order_count_ == 1) {
+  if (order_count_ == 0) {
+      throw std::runtime_error("DepthLevel::close_order "
+                               "order count too low");
+  } else if (order_count_ == 1) {
     init(0);  // Reset
     empty = true;
   // Else, decrement/decrease
@@ -71,7 +74,7 @@ DepthLevel::close_order(Quantity qty)
     if (aggregate_qty_ >= qty) {
       aggregate_qty_ -= qty;
     } else {
-      throw std::runtime_error("DepthLevel::remove_order "
+      throw std::runtime_error("DepthLevel::close_order "
                                "level quantity too low");
     }
   }
