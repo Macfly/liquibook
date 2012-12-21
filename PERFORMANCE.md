@@ -8,9 +8,9 @@ Performance Test Results, Inserts Per Second
     <th>Note</th>
   </tr>
   <tr>
-    <td>38,878</td>
-    <td>124,756</td>
     <td>1,495,744</td>
+    <td>124,756</td>
+    <td>38,878</td>
     <td>Initial run with all 3 tests</td>
   </tr>
 </table>
