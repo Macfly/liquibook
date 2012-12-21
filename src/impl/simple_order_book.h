@@ -19,6 +19,7 @@ public:
   SimpleOrderBook();
 
   virtual void perform_callback(SimpleCallback& cb);
+  SimpleDepth& depth();
   const SimpleDepth& depth() const;
 
 private:
@@ -189,6 +190,13 @@ SimpleOrderBook<SIZE>::restore_last_ask_level(const TransId& trans_id)
       ask_restore_trans_price_ = restoration_price;
     }
   }
+}
+
+template <int SIZE>
+inline typename SimpleOrderBook<SIZE>::SimpleDepth&
+SimpleOrderBook<SIZE>::depth()
+{
+  return depth_;
 }
 
 template <int SIZE>
