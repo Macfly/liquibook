@@ -55,11 +55,12 @@ bool replace_and_verify(OrderBook& order_book,
                         const OrderPtr& order,
                         int32_t size_change,
                         Price new_price = PRICE_UNCHANGED,
-                        impl::OrderState expected_state = impl::os_accepted)
+                        impl::OrderState expected_state = impl::os_accepted,
+                        Quantity match_qty = 0)
 {
   // Calculate
   Quantity expected_order_qty = order->order_qty() + size_change;
-  Quantity expected_open_qty = order->open_qty() + size_change;
+  Quantity expected_open_qty = order->open_qty() + size_change - match_qty;
   Price expected_price = 
       (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
 
@@ -2166,8 +2167,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
     BOOST_REQUIRE(add_and_verify(order_book, &cross_ask, true, true));
   ); }
 
-  // TODO Verify changed stamps
-  // Wait for accept_no_insert change
   //BOOST_REQUIRE(cc.verify_bid_stamps(7, 2, 3, 0, 0));
   //BOOST_REQUIRE(cc.verify_ask_stamps(5, 0, 0, 0, 0));
 
@@ -2322,6 +2321,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncreaseDecrease)
 BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
 {
   SimpleOrderBook order_book;
+  ChangedChecker cc(order_book.depth());
   SimpleOrder ask0(false, 1253, 300);
   SimpleOrder ask1(false, 1252, 200);
   SimpleOrder bid1(true,  1251, 140);
@@ -2340,7 +2340,11 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
-  // Replace price increase
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+
+  // Replace price increase 1250 -> 1251
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1251));
 
   // Verify price change in book
@@ -2361,7 +2365,11 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
-  // Replace price decrease
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 6, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+
+  // Replace price decrease 1251 -> 1250
   BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1250));
 
   // Verify price change in book
@@ -2383,6 +2391,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(8, 7, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
@@ -2416,8 +2428,8 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1253));
 
   // TODO: Verify changed stamps
-  // BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  // BOOST_REQUIRE(cc.verify_ask_stamps(5, 6, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(6, 6, 0, 0, 0));
 
   // Verify price change in book
   SimpleOrderBook::Asks::const_iterator ask = order_book.asks().begin();
@@ -2753,7 +2765,175 @@ BOOST_AUTO_TEST_CASE(TestAskMultiLevelFillRestore)
   BOOST_REQUIRE(dc.verify_bid(1242, 1, 100));
 }
 
+BOOST_AUTO_TEST_CASE(TestReplaceBidMatch)
+{
+  SimpleOrderBook order_book;
+  ChangedChecker cc(order_book.depth());
+  SimpleOrder ask1(false, 1254, 200);
+  SimpleOrder ask0(false, 1253, 300);
+  SimpleOrder bid1(true,  1251, 140);
+  SimpleOrder bid0(true,  1250, 120);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 0, 0, 0));
+
+  // Replace price increase new best 1250 -> 1252
+  BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1252));
+
+  // Verify price change in book
+  SimpleOrderBook::Bids::const_iterator bid = order_book.bids().begin();
+  BOOST_REQUIRE_EQUAL(1252, bid->first);
+  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
+  BOOST_REQUIRE_EQUAL(1251, (++bid)->first);
+  BOOST_REQUIRE_EQUAL(&bid1, bid->second.ptr());
+  BOOST_REQUIRE(order_book.bids().end() == ++bid);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1252, bid0.price());
+  BOOST_REQUIRE_EQUAL(120, bid0.order_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1252, 1, 120));
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 5, 6, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 0, 0, 0));
 
 
+  // Match - complete
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc0(&ask0,  140, 140 * 1253);
+    SimpleFillCheck fc1(&bid1,  140, 140 * 1253);
+    // Replace price increase match 1251 -> 1253
+    BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1253,
+                  impl::os_complete, 140));
+  ); }
+
+  // Verify price change in book
+  bid = order_book.bids().begin();
+  BOOST_REQUIRE_EQUAL(1252, bid->first);
+  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
+  BOOST_REQUIRE(order_book.bids().end() == ++bid);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1253, bid1.price());
+  BOOST_REQUIRE_EQUAL(140, bid1.order_qty());
+  BOOST_REQUIRE_EQUAL(0, bid1.open_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1252, 1, 120));
+  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 160));
+  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(10, 10, 8, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(9, 4, 0, 0, 0));
+}
+
+BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
+{
+  SimpleOrderBook order_book;
+  ChangedChecker cc(order_book.depth());
+  SimpleOrder ask1(false, 1254, 200);
+  SimpleOrder ask0(false, 1253, 300);
+  SimpleOrder bid1(true,  1251, 140);
+  SimpleOrder bid0(true,  1250, 120);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 0, 0, 0));
+
+  // Replace price decrease new best 1254 -> 1252
+  BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1252));
+
+  // Verify price change in book
+  SimpleOrderBook::Bids::const_iterator ask = order_book.asks().begin();
+  BOOST_REQUIRE_EQUAL(1252, ask->first);
+  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
+  BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
+  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
+  BOOST_REQUIRE(order_book.asks().end() == ++ask);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1252, ask1.price());
+  BOOST_REQUIRE_EQUAL(200, ask1.order_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(5, 5, 6, 0, 0));
+
+  // Match - complete
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc0(&ask0,  140, 140 * 1251);
+    SimpleFillCheck fc1(&bid1,  140, 140 * 1251);
+    // Replace price decrease match 1253 -> 1251
+    BOOST_REQUIRE(replace_and_verify(order_book, &ask0, SIZE_UNCHANGED, 1251,
+                  impl::os_accepted, 140));
+  ); }
+
+  // Verify price change in book
+  ask = order_book.asks().begin();
+  BOOST_REQUIRE_EQUAL(1251, ask->first);
+  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
+  BOOST_REQUIRE_EQUAL(1252, (++ask)->first);
+  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
+  BOOST_REQUIRE(order_book.asks().end() == ++ask);
+
+  // Verify order
+  BOOST_REQUIRE_EQUAL(1251, ask0.price());
+  BOOST_REQUIRE_EQUAL(300, ask0.order_qty());
+  BOOST_REQUIRE_EQUAL(160, ask0.open_qty());
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
+  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
+  BOOST_REQUIRE(dc.verify_ask(1251, 1, 160));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
+
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_stamps(9, 9, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_stamps(10, 7, 8, 0, 0));
+}
 
 } // namespace
