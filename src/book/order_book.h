@@ -146,6 +146,7 @@ private:
   Callbacks callbacks_;
   OrderBookListener* book_listener_;
   TypedOrderListener* order_listener_;
+  TransId trans_id_;
 
   Price sort_price(const OrderPtr& order);
   bool add_order(Tracker& order_tracker, Price order_price);
@@ -203,7 +204,8 @@ OrderTracker<OrderPtr>::ptr()
 template <class OrderPtr>
 OrderBook<OrderPtr>::OrderBook()
 : book_listener_(NULL),
-  order_listener_(NULL)
+  order_listener_(NULL),
+  trans_id_(0)
 {
 }
 
@@ -362,8 +364,13 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
     // If the current order has an equal or better price 
     // than the inbound one
     if (bid->first >= inbound_price) {
-      // Set return value
-      matched =  true;
+      // if this is the first match
+      if (!matched) {
+        // Increment transacion ID
+        ++trans_id_;  
+        // Set return value
+        matched =  true;
+      }
 
       // Adjust tracking values for cross
       cross_orders(inbound, bid->second);
@@ -401,8 +408,13 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
     // If the current order has an equal or better price 
     // than the inbound one
     if (ask->first <= inbound_price) {
-      // Set return value
-      matched =  true;
+      // if this is the first match
+      if (!matched) {
+        // Increment transacion ID
+        ++trans_id_;  
+        // Set return value
+        matched =  true;
+      }
 
       // Adjust tracking values for cross
       cross_orders(inbound, ask->second);
@@ -445,11 +457,13 @@ OrderBook<OrderPtr>::cross_orders(Tracker& inbound_tracker,
   callbacks_.push_back(TypedCallback::fill(current_tracker.ptr(),
                                            fill_qty,
                                            cross_price,
-                                           fill_cost));
+                                           fill_cost,
+                                           trans_id_));
   callbacks_.push_back(TypedCallback::fill(inbound_tracker.ptr(),
                                            fill_qty,
                                            cross_price,
-                                           fill_cost));
+                                           fill_cost,
+                                           trans_id_));
   callbacks_added();
 }
 

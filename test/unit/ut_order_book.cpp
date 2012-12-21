@@ -2631,5 +2631,129 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChangeErase)
   BOOST_REQUIRE(dc.verify_ask(1256, 1, 330));
 }
 
+// A potential problem
+// When restroing a level into the depth, the orders (and thus the restored
+// level already reflect the post-fill quantity, but the fill callback has 
+// yet to be processed.  As such, a multilevel fill can have fills at the 
+// restoration price double-counted
+// but the 
+BOOST_AUTO_TEST_CASE(TestBidMultiLevelFillRestore)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask1(false, 0, 1300);
+  SimpleOrder ask0(false, 1252, 100);
+  SimpleOrder bid0(true,  1251, 200);
+  SimpleOrder bid1(true,  1250, 200);
+  SimpleOrder bid2(true,  1250, 200);
+  SimpleOrder bid3(true,  1248, 200);
+  SimpleOrder bid4(true,  1247, 200);
+  SimpleOrder bid5(true,  1246, 200);
+  SimpleOrder bid6(true,  1245, 200); // Partial match
+  SimpleOrder bid7(true,  1244, 200);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid2, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid3, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid4, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid5, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid6, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid7, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+
+  // Verify sizes
+  BOOST_REQUIRE_EQUAL(8, order_book.bids().size());
+  BOOST_REQUIRE_EQUAL(1, order_book.asks().size());
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 200));
+  BOOST_REQUIRE(dc.verify_bid(1250, 2, 400));
+  BOOST_REQUIRE(dc.verify_bid(1248, 1, 200));
+  BOOST_REQUIRE(dc.verify_bid(1247, 1, 200));
+  BOOST_REQUIRE(dc.verify_bid(1246, 1, 200));
+
+  // Match - complete
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc0(&bid0,  200,  250200);
+    SimpleFillCheck fc1(&bid1,  200,  250000);
+    SimpleFillCheck fc2(&bid2,  200,  250000);
+    SimpleFillCheck fc3(&bid3,  200,  249600);
+    SimpleFillCheck fc4(&bid4,  200,  249400);
+    SimpleFillCheck fc5(&bid5,  200,  249200);
+    SimpleFillCheck fc6(&bid6,  100,  124500);
+    SimpleFillCheck fc7(&ask1, 1300, 1622900);
+    BOOST_REQUIRE(add_and_verify(order_book, &ask1, true, true));
+  ); }
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1245, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1244, 1, 200));
+}
+
+BOOST_AUTO_TEST_CASE(TestAskMultiLevelFillRestore)
+{
+  SimpleOrderBook order_book;
+  SimpleOrder ask0(false,  1251, 200); // Partial match
+  SimpleOrder ask1(false,  1250, 200);
+  SimpleOrder ask2(false,  1250, 300);
+  SimpleOrder ask3(false,  1248, 200);
+  SimpleOrder ask4(false,  1247, 200);
+  SimpleOrder ask5(false,  1245, 200);
+  SimpleOrder ask6(false,  1245, 200);
+  SimpleOrder ask7(false,  1244, 200);
+  SimpleOrder bid1(true, 0, 1550);
+  SimpleOrder bid0(true, 1242, 100);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask2, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask3, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask4, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask5, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask6, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask7, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+
+  // Verify sizes
+  BOOST_REQUIRE_EQUAL(8, order_book.asks().size());
+  BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_ask(1244, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1245, 2, 400));
+  BOOST_REQUIRE(dc.verify_ask(1247, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1248, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1250, 2, 500));
+  BOOST_REQUIRE(dc.verify_bid(1242, 1, 100));
+
+  // Match - complete
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc7(&ask7,  200,  248800);
+    SimpleFillCheck fc6(&ask6,  200,  249000);
+    SimpleFillCheck fc5(&ask5,  200,  249000);
+    SimpleFillCheck fc4(&ask4,  200,  249400);
+    SimpleFillCheck fc3(&ask3,  200,  249600);
+    SimpleFillCheck fc2(&ask2,  300,  375000);
+    SimpleFillCheck fc1(&ask1,  200,  250000);
+    SimpleFillCheck fc0(&ask0,   50,   62550);
+    SimpleFillCheck fc8(&bid1, 1550, 1933350);
+    BOOST_REQUIRE(add_and_verify(order_book, &bid1, true, true));
+  ); }
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_ask(1251, 1, 150));
+  BOOST_REQUIRE(dc.verify_bid(1242, 1, 100));
+}
+
+
+
 
 } // namespace

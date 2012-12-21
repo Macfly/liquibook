@@ -61,7 +61,8 @@ public:
   static Callback<OrderPtr> fill(const OrderPtr& order,
                                  const Quantity& qty,
                                  const Price& price,
-                                 const Cost& cost);
+                                 const Cost& cost,
+                                 const TransId& transactionId);
   static Callback<OrderPtr> cancel(const OrderPtr& order);
   static Callback<OrderPtr> cancel_reject(const OrderPtr& order,
                                           const char* reason);
@@ -77,6 +78,7 @@ public:
   Quantity ref_qty_;
   Price ref_price_;
   Cost ref_cost_;
+  TransId ref_id_;
 };
 
 template <class OrderPtr>
@@ -104,7 +106,8 @@ template <class OrderPtr>
 Callback<OrderPtr> Callback<OrderPtr>::fill(const OrderPtr& order,
                                             const Quantity& qty,
                                             const Price& price,
-                                            const Cost& cost)
+                                            const Cost& cost,
+                                            const TransId& trans_id)
 {
   Callback<OrderPtr> result;
   result.type_ = cb_order_fill;
@@ -112,6 +115,7 @@ Callback<OrderPtr> Callback<OrderPtr>::fill(const OrderPtr& order,
   result.ref_qty_ = qty;
   result.ref_price_ = price;
   result.ref_cost_ = cost;
+  result.ref_id_ = trans_id;
   return result;
 }
 
@@ -142,7 +146,8 @@ Callback<OrderPtr>::Callback()
   reject_reason_(NULL),
   ref_qty_(0),
   ref_price_(0),
-  ref_cost_(0)
+  ref_cost_(0),
+  ref_id_(0)
 {
 }
 
