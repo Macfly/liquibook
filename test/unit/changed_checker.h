@@ -5,10 +5,13 @@ namespace liquibook {
 
 using book::Depth;
 using book::DepthLevel;
-typedef Depth<5> SizedDepth;
 
+namespace test {
+
+template <int SIZE = 5>
 class ChangedChecker {
 public:
+  typedef Depth<SIZE> SizedDepth;
   ChangedChecker(const SizedDepth& depth)
   : depth_(depth)
   {
@@ -26,6 +29,22 @@ public:
     return verify_side_stamps(depth_.asks(), l0, l1, l2, l3, l4);
   }
 
+  bool verify_bbo_stamps(ChangeId bid_stamp, ChangeId ask_stamp)
+  {
+    bool matched = true;
+    if (depth_.bids()->last_change() != bid_stamp) {
+      std::cout << "best bid change " 
+                << depth_.bids()->last_change() << std::endl;
+      matched = false;
+    }
+    if (depth_.asks()->last_change() != ask_stamp) {
+      std::cout << "best ask change " 
+                << depth_.asks()->last_change() << std::endl;
+      matched = false;
+    }
+    return matched;
+  }
+  private:
   bool verify_side_stamps(const DepthLevel* start, 
                    ChangeId l0, ChangeId l1, ChangeId l2, 
                    ChangeId l3, ChangeId l4)
@@ -57,4 +76,4 @@ public:
   const SizedDepth& depth_;
 };
 
-} // namespace
+} } // namespace
