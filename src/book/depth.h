@@ -38,6 +38,7 @@ public:
   /// @param price the price level of the bid
   /// @param qty the open quantity of the bid
   void add_bid(Price price, Quantity qty);
+
   /// @brief cancel or fill a bid order
   /// @param price the price level of the bid
   /// @param qty the open quantity of the bid
@@ -49,6 +50,16 @@ public:
   /// @param qty_delta the change in open quantity of the bid (+ or -)
   void change_qty_bid(Price price, int32_t qty_delta);
   
+  /// @brief replace a bid
+  /// @param current_price the current price level of the bid
+  /// @param new_price the new price level of the bid
+  /// @param current_qty the current open quantity of the bid
+  /// @param new_qty the new open quantity of the bid
+  /// @return true if the close erased a visible level
+  bool replace_bid(Price current_price,
+                   Price new_price,
+                   Quantity current_qty,
+                   Quantity new_qty);
   // TODO REMOVE
   /// @brief increase size of a bid order
   /// @param price the price level of the bid
@@ -65,6 +76,7 @@ public:
   /// @param price the price level of the ask
   /// @param qty the open quantity of the ask
   void add_ask(Price price, Quantity qty);
+
   /// @brief cancel or fill a ask order
   /// @param price the price level of the ask
   /// @param qty the open quantity of the ask
@@ -76,6 +88,16 @@ public:
   /// @param qty_delta the change in open quantity of the ask (+ or -)
   void change_qty_ask(Price price, int32_t qty_delta);
 
+  /// @brief replace a ask
+  /// @param current_price the current price level of the ask
+  /// @param new_price the new price level of the ask
+  /// @param current_qty the current open quantity of the ask
+  /// @param new_qty the new open quantity of the ask
+  /// @return true if the close erased a visible level
+  bool replace_ask(Price current_price,
+                   Price new_price,
+                   Quantity current_qty,
+                   Quantity new_qty);
   // TODO REMOVE
   /// @brief increase size of a ask order
   /// @param price the price level of the ask
@@ -252,6 +274,27 @@ Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
 }
  
 template <int SIZE> 
+inline bool
+Depth<SIZE>::replace_bid(
+  Price current_price,
+  Price new_price,
+  Quantity current_qty,
+  Quantity new_qty)
+{
+  bool erased = false;
+  if (current_price == new_price) {
+    int32_t qty_delta = ((int32_t)new_qty) - current_qty;
+    change_qty_bid(current_price, qty_delta);
+  } else {
+    // Add the new bid quantity first, and possibly insert a new level
+    add_bid(new_price, new_qty);
+    // Remove the old bid quantity, and possibly erase a level
+    erased = close_bid(current_price, current_qty);
+  }
+  return erased;
+}
+
+template <int SIZE> 
 inline void
 Depth<SIZE>::add_ask(Price price, Quantity qty)
 {
@@ -294,6 +337,27 @@ Depth<SIZE>::change_qty_ask(Price price, int32_t qty_delta)
     level->last_change(++last_change_);
   }
   // Ignore if not found - may be beyond our depth size
+}
+
+template <int SIZE> 
+inline bool
+Depth<SIZE>::replace_ask(
+  Price current_price,
+  Price new_price,
+  Quantity current_qty,
+  Quantity new_qty)
+{
+  bool erased = false;
+  if (current_price == new_price) {
+    int32_t qty_delta = ((int32_t)new_qty) - current_qty;
+    change_qty_ask(current_price, qty_delta);
+  } else {
+    // Add the new ask quantity first, and possibly insert a new level
+    add_ask(new_price, new_qty);
+    // Remove the old ask quantity, and possibly erase a level
+    erased = close_ask(current_price, current_qty);
+  }
+  return erased;
 }
 
 template <int SIZE> 

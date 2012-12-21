@@ -74,13 +74,13 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
           }
         // Else this fill reduced the order
         } else {
-          int32_t quantity_delta = -cb.ref_qty_;
+          int32_t qty_delta = -cb.ref_qty_;
           // If the reduced order is a buy
           if (cb.order_->is_buy()) {
-            depth_.change_qty_bid(cb.order_->price(), quantity_delta);
+            depth_.change_qty_bid(cb.order_->price(), qty_delta);
           // Else the reduced order is a sell
           } else {
-            depth_.change_qty_ask(cb.order_->price(), quantity_delta);
+            depth_.change_qty_ask(cb.order_->price(), qty_delta);
           }
         }
       }
@@ -106,37 +106,26 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
 
     case SimpleCallback::cb_order_replace:
     {
-      int32_t qty_delta = cb.ref_qty_ - cb.order_->order_qty();
-      // If the quantity changed and the price did not
-      if (qty_delta && cb.order_->price() == cb.ref_price_) {
-        if (cb.order_->is_buy()) {
-          depth_.change_qty_bid(cb.order_->price(), qty_delta);
-        } else {
-          depth_.change_qty_ask(cb.order_->price(), qty_delta);
-        }
-      // Else the price changed (and perhaps quantity also)
-      } else {
-        Quantity new_open_qty = cb.order_->open_qty() + qty_delta;
+      // Remember current values
+      Price current_price = cb.order_->price();
+      Quantity current_qty = cb.order_->open_qty();
 
-        // Move open quantity from current level, to updated quantity 
-        // at new level
-        if (cb.order_->is_buy()) {
-          depth_.close_bid(cb.order_->price(), cb.order_->open_qty());
-          if (new_open_qty) {
-            depth_.add_bid(cb.ref_price_, new_open_qty);
-          }
-        } else {
-          depth_.close_ask(cb.order_->price(), cb.order_->open_qty());
-          if (new_open_qty) {
-            depth_.add_ask(cb.ref_price_, new_open_qty);
-          }
+      // Modify the order itself.  Do this first so restoration is accurate
+      cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+
+      if (cb.order_->is_buy()) {
+        if (depth_.replace_bid(current_price, cb.ref_price_, 
+                               current_qty, cb.order_->open_qty())) {
+          restore_last_bid_level();
         }
-        // Modify the order itself
-        cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+      } else {
+        if (depth_.replace_ask(current_price, cb.ref_price_, 
+                               current_qty, cb.order_->open_qty())) {
+          restore_last_ask_level();
+        }
       }
 
-      // Modify the order itself
-      cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+
       break;
     }
     default:

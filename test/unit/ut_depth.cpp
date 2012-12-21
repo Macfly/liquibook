@@ -10,6 +10,7 @@ namespace liquibook {
 using book::Depth;
 using book::DepthLevel;
 typedef Depth<5> SizedDepth;
+typedef test::ChangedChecker<5> ChangedChecker;
 
 bool verify_level(const DepthLevel*& level, 
                   Price price, 
@@ -668,6 +669,70 @@ BOOST_AUTO_TEST_CASE(TestIncreaseDecreaseAsk)
   BOOST_REQUIRE(verify_level(ask, 1232, 1, 151));
   BOOST_REQUIRE(verify_level(ask, 1235, 2, 559));
   BOOST_REQUIRE(verify_level(ask, 1236, 1, 497));
+}
+
+BOOST_AUTO_TEST_CASE(TestReplaceBid)
+{
+  SizedDepth depth;
+  ChangedChecker cc(depth);
+  depth.add_bid(1236, 300);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 0, 0, 0, 0));
+  depth.add_bid(1235, 200);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
+  depth.add_bid(1232, 100);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 3, 0, 0));
+  depth.add_bid(1235, 400);
+  BOOST_REQUIRE(cc.verify_bid_stamps(1, 4, 3, 0, 0));
+
+  // Verify Levels 
+  const DepthLevel* bid = depth.bids();
+  BOOST_REQUIRE(verify_level(bid, 1236, 1, 300));
+  BOOST_REQUIRE(verify_level(bid, 1235, 2, 600));
+  BOOST_REQUIRE(verify_level(bid, 1232, 1, 100));
+
+  // Replace bid
+  depth.replace_bid(1235, 1237, 200, 200);
+
+  // Verify Levels 
+  bid = depth.bids();
+  BOOST_REQUIRE(verify_level(bid, 1237, 1, 200));
+  BOOST_REQUIRE(verify_level(bid, 1236, 1, 300));
+  BOOST_REQUIRE(verify_level(bid, 1235, 1, 400));
+  BOOST_REQUIRE(verify_level(bid, 1232, 1, 100));
+
+  BOOST_REQUIRE(cc.verify_bid_stamps(5, 5, 6, 5, 0));
+}
+
+BOOST_AUTO_TEST_CASE(TestReplaceAsk)
+{
+  SizedDepth depth;
+  ChangedChecker cc(depth);
+  depth.add_ask(1236, 300);
+  BOOST_REQUIRE(cc.verify_ask_stamps(1, 0, 0, 0, 0));
+  depth.add_ask(1235, 200);
+  BOOST_REQUIRE(cc.verify_ask_stamps(2, 2, 0, 0, 0));
+  depth.add_ask(1232, 100);
+  BOOST_REQUIRE(cc.verify_ask_stamps(3, 3, 3, 0, 0));
+  depth.add_ask(1235, 400);
+  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 3, 0, 0));
+
+  // Verify Levels 
+  const DepthLevel* ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1232, 1, 100));
+  BOOST_REQUIRE(verify_level(ask, 1235, 2, 600));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1, 300));
+
+  // Replace ask
+  depth.replace_ask(1235, 1237, 200, 200);
+
+  // Verify Levels 
+  ask = depth.asks();
+  BOOST_REQUIRE(verify_level(ask, 1232, 1, 100));
+  BOOST_REQUIRE(verify_level(ask, 1235, 1, 400));
+  BOOST_REQUIRE(verify_level(ask, 1236, 1, 300));
+  BOOST_REQUIRE(verify_level(ask, 1237, 1, 200));
+
+  BOOST_REQUIRE(cc.verify_ask_stamps(3, 6, 3, 5, 0));
 }
 
 } // namespace
