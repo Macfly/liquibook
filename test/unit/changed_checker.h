@@ -12,9 +12,22 @@ template <int SIZE = 5>
 class ChangedChecker {
 public:
   typedef Depth<SIZE> SizedDepth;
-  ChangedChecker(const SizedDepth& depth)
+  ChangedChecker(SizedDepth& depth)
   : depth_(depth)
   {
+  }
+
+  void reset() {
+    depth_.published();
+  }
+
+  bool verify_bid_changed(bool l0, bool l1, bool l2, bool l3, bool l4)
+  {
+    return verify_side_changed(depth_.bids(), l0, l1, l2, l3, l4);
+  }
+  bool verify_ask_changed(bool l0, bool l1, bool l2, bool l3, bool l4)
+  {
+    return verify_side_changed(depth_.asks(), l0, l1, l2, l3, l4);
   }
 
   bool verify_bid_stamps(ChangeId l0, ChangeId l1, ChangeId l2, 
@@ -72,8 +85,38 @@ public:
     }
     return matched;
   }
+
+  bool verify_side_changed(const DepthLevel* start,
+                           bool l0, bool l1, bool l2, bool l3, bool l4)
+  {
+    bool matched = true;
+    ChangeId last_change = depth_.last_published_change();
+    
+    if (start[0].changed_since(last_change) != l0) {
+      std::cout << "changed[0] mismatch" << std::endl;
+      matched = false;
+    }
+    if (start[1].changed_since(last_change) != l1) {
+      std::cout << "changed[1] mismatch" << std::endl;
+      matched = false;
+    }
+    if (start[2].changed_since(last_change) != l2) {
+      std::cout << "changed[2] mismatch" << std::endl;
+      matched = false;
+    }
+    if (start[3].changed_since(last_change) != l3) {
+      std::cout << "changed[3] mismatch" << std::endl;
+      matched = false;
+    }
+    if (start[4].changed_since(last_change) != l4) {
+      std::cout << "changed[4] mismatch" << std::endl;
+      matched = false;
+    }
+    return matched;
+  }
+
   private:
-  const SizedDepth& depth_;
+  SizedDepth& depth_;
 };
 
 } } // namespace
