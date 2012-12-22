@@ -2057,16 +2057,18 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncrease)
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 300));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(1, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
+  cc.reset();
 
   // Replace size
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, 25));
   BOOST_REQUIRE(replace_and_verify(order_book, &ask0, 50));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(5, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 6, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(0, 1, 0, 0, 0));
+  cc.reset();
 
   // Verify orders
   BOOST_REQUIRE_EQUAL(125, bid0.order_qty());
@@ -2102,8 +2104,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
+  cc.reset();
 
   // Replace size
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, -60));
@@ -2120,8 +2123,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 350));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 5, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(6, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(0, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
+  cc.reset();
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
@@ -2149,26 +2153,35 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 3, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(5, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
+  cc.reset();
 
   // Partial Fill existing book
   SimpleOrder cross_bid(true,  1252, 125);
   SimpleOrder cross_ask(false, 1251, 100);
   
+  // Bid matching best ask
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&cross_bid, 125, 1252 * 125);
     SimpleFillCheck fc2(&ask0,      125, 1252 * 125);
     BOOST_REQUIRE(add_and_verify(order_book, &cross_bid, true, true));
   ); }
+
+  // TODO: don't insert when when inbound will be filled
+  BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
+  cc.reset();
+
+  // Ask matching best bid
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&cross_ask, 100, 1251 * 100);
     SimpleFillCheck fc2(&bid1,      100, 1251 * 100);
     BOOST_REQUIRE(add_and_verify(order_book, &cross_ask, true, true));
   ); }
 
-  //BOOST_REQUIRE(cc.verify_bid_stamps(7, 2, 3, 0, 0));
-  //BOOST_REQUIRE(cc.verify_ask_stamps(5, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
 
   // Verify quantity
   BOOST_REQUIRE_EQUAL(175, ask0.open_qty());
@@ -2341,8 +2354,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
+  cc.reset();
 
   // Replace price increase 1250 -> 1251
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1251));
@@ -2366,8 +2380,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(5, 6, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
+  cc.reset();
 
   // Replace price decrease 1251 -> 1250
   BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1250));
@@ -2393,8 +2408,8 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(8, 7, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
@@ -2414,8 +2429,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(4, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
+  cc.reset();
 
   // Verify depth
   DepthCheck dc(order_book.depth());
@@ -2427,9 +2443,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   // Replace price increase 1252 -> 1253
   BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1253));
 
-  // TODO: Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(6, 6, 0, 0, 0));
+  // Verify changed stamps
+  BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
+  cc.reset();
 
   // Verify price change in book
   SimpleOrderBook::Asks::const_iterator ask = order_book.asks().begin();
@@ -2788,8 +2805,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidMatch)
   BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
+  cc.reset();
 
   // Replace price increase new best 1250 -> 1252
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1252));
@@ -2814,9 +2832,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidMatch)
   BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(5, 5, 6, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 0, 0, 0));
-
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
+  cc.reset();
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -2846,8 +2864,8 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidMatch)
   BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(10, 10, 8, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(9, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
@@ -2873,8 +2891,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
   BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(3, 4, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
+  cc.reset();
 
   // Replace price decrease new best 1254 -> 1252
   BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1252));
@@ -2899,8 +2918,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(2, 2, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(5, 5, 6, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 1, 0, 0));
+  cc.reset();
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -2932,8 +2952,8 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_stamps(9, 9, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_stamps(10, 7, 8, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 1, 0, 0));
 }
 
 } // namespace

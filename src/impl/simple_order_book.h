@@ -32,6 +32,8 @@ private:
   TransId ask_restore_trans_id_;
   TransId bid_restore_trans_price_;
   TransId ask_restore_trans_price_;
+  TransId skipped_order_trans_id_;
+  SimpleOrder* skipped_order_;
 
   bool fill_accounted_for(const SimpleCallback& cb);
 };
@@ -43,7 +45,9 @@ SimpleOrderBook<SIZE>::SimpleOrderBook()
   bid_restore_trans_id_(0),
   ask_restore_trans_id_(0),
   bid_restore_trans_price_(0),
-  ask_restore_trans_price_(0)
+  ask_restore_trans_price_(0),
+  skipped_order_trans_id_(0),
+  skipped_order_(NULL)
 {
 }
 
@@ -52,12 +56,16 @@ template <int SIZE>
 inline void
 SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
 {
-
   switch(cb.type_) {
     case SimpleCallback::cb_order_accept:
       cb.order_->accept();
       // If the order is a limit order
       if (cb.order_->is_limit()) {
+        if (cb.ref_qty_ == cb.order_->order_qty()) {
+          skipped_order_trans_id_ = cb.trans_id_;
+          skipped_order_ = cb.order_;
+          break; // Don't add
+        }
         // Add to bid or ask depth
         if (cb.order_->is_buy()) {
           depth_.add_bid(cb.order_->price(), cb.order_->order_qty());
@@ -80,12 +88,12 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
           // If the filled order is a buy
           if (cb.order_->is_buy()) {
             if (depth_.close_bid(cb.order_->price(), cb.ref_qty_)) {
-              restore_last_bid_level(cb.ref_id_);
+              restore_last_bid_level(cb.trans_id_);
             }
           // Else the filled order is a sell
           } else {
             if (depth_.close_ask(cb.order_->price(), cb.ref_qty_)) {
-              restore_last_ask_level(cb.ref_id_);
+              restore_last_ask_level(cb.trans_id_);
             }
           }
         // Else this fill reduced the order
@@ -109,12 +117,12 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
         // If the cancelled order is a buy
         if (cb.order_->is_buy()) {
           if (depth_.close_bid(cb.order_->price(), cb.order_->open_qty())) {
-            restore_last_bid_level(cb.ref_id_);
+            restore_last_bid_level(cb.trans_id_);
           }
         // Else the cancelled order is a sell
         } else {
           if (depth_.close_ask(cb.order_->price(), cb.order_->open_qty())) {
-            restore_last_ask_level(cb.ref_id_);
+            restore_last_ask_level(cb.trans_id_);
           }
         }
       }
@@ -132,15 +140,14 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
       if (cb.order_->is_buy()) {
         if (depth_.replace_bid(current_price, cb.ref_price_, 
                                current_qty, cb.order_->open_qty())) {
-          restore_last_bid_level(cb.ref_id_);
+          restore_last_bid_level(cb.trans_id_);
         }
       } else {
         if (depth_.replace_ask(current_price, cb.ref_price_, 
                                current_qty, cb.order_->open_qty())) {
-          restore_last_ask_level(cb.ref_id_);
+          restore_last_ask_level(cb.trans_id_);
         }
       }
-
 
       break;
     }
@@ -210,17 +217,21 @@ template <int SIZE>
 inline bool
 SimpleOrderBook<SIZE>::fill_accounted_for(const SimpleCallback& cb)
 {
+  if ((cb.trans_id_ == skipped_order_trans_id_) && 
+      (cb.order_ == skipped_order_)) {
+    return true;
+  }
   // If the filled order is a buy
   if (cb.order_->is_buy()) {
     // If depth has already been adjusted for level and this transaction
-    if (cb.ref_id_ == bid_restore_trans_id_ && 
+    if (cb.trans_id_ == bid_restore_trans_id_ && 
         cb.ref_price_ < bid_restore_trans_price_) {
       return true;
     }
   // Else the filled order is a sell
   } else {
     // If depth has already been adjusted for this level and transaction
-    if (cb.ref_id_ == ask_restore_trans_id_ &&
+    if (cb.trans_id_ == ask_restore_trans_id_ &&
         cb.ref_price_ > ask_restore_trans_price_) {
       return true;
     }

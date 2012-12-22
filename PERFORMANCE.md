@@ -8,6 +8,12 @@ Performance Test Results, Inserts Per Second
     <th>Note</th>
   </tr>
   <tr>
+    <td>1,500,874</td>
+    <td>153,839</td>
+    <td>58,936</td>
+    <td>After removing spuroious insert on accept of completely filled order</td>
+  </tr>
+  <tr>
     <td>1,495,744</td>
     <td>124,756</td>
     <td>38,878</td>
