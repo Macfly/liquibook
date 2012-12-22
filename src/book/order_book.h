@@ -26,6 +26,7 @@ public:
   void fill(Quantity qty); 
 
   bool filled() const;
+  Quantity filled_qty() const;
   Quantity open_qty() const;
 
   const OrderPtr& ptr() const;
@@ -176,6 +177,13 @@ OrderTracker<OrderPtr>::filled() const
 
 template <class OrderPtr>
 inline Quantity
+OrderTracker<OrderPtr>::filled_qty() const
+{
+  return filled_qty_;
+}
+
+template <class OrderPtr>
+inline Quantity
 OrderTracker<OrderPtr>::open_qty() const
 {
   Quantity original_qty = order_->order_qty();
@@ -213,17 +221,26 @@ template <class OrderPtr>
 inline bool
 OrderBook<OrderPtr>::add(const OrderPtr& order)
 {
+  // Increment transacion ID
+  ++trans_id_;  
+
   bool matched = false;
 
   // If the order is invalid, exit
   if (!is_valid(order)) {
     // reject created by is_valid
   } else {
-    callbacks_.push_back(TypedCallback::accept(order));
+    callbacks_.push_back(TypedCallback::accept(order, trans_id_));
+    TypedCallback& accept_cb = callbacks_.back();
+
     Price order_price = sort_price(order);
 
     Tracker inbound(order);
     matched = add_order(inbound, order_price);
+    if (matched) {
+      // Note the filled qty
+      accept_cb.ref_qty_ = inbound.filled_qty();
+    }
   }
   callbacks_added();
   return matched;
@@ -233,6 +250,9 @@ template <class OrderPtr>
 inline void
 OrderBook<OrderPtr>::cancel(const OrderPtr& order)
 {
+  // Increment transacion ID
+  ++trans_id_;  
+
   bool found = false;
   // If the cancel is a buy order
   if (order->is_buy()) {
@@ -255,9 +275,10 @@ OrderBook<OrderPtr>::cancel(const OrderPtr& order)
   } 
   // If the cancel was found, issue callback
   if (found) {
-    callbacks_.push_back(TypedCallback::cancel(order));
+    callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
   } else {
-    callbacks_.push_back(TypedCallback::cancel_reject(order, "not found"));
+    callbacks_.push_back(
+        TypedCallback::cancel_reject(order, "not found", trans_id_));
   }
   callbacks_added();
 }
@@ -269,6 +290,9 @@ OrderBook<OrderPtr>::replace(
   int32_t size_delta,
   Price new_price)
 {
+  // Increment transacion ID
+  ++trans_id_;  
+
   bool matched = false;
 
   // method will push reject callbacks
@@ -295,16 +319,18 @@ OrderBook<OrderPtr>::replace(
         if (size_decrease && (bid->second.open_qty() < std::abs(size_delta))) {
           // Reject the replace
           callbacks_.push_back(
-              TypedCallback::replace_reject(order, "not enough open qty"));
+              TypedCallback::replace_reject(order, 
+                                            "not enough open qty", 
+                                            trans_id_));
         // Else this is fine
         } else {
           // Accept the replace
           callbacks_.push_back(
-              TypedCallback::replace(order, new_order_qty, price));
+              TypedCallback::replace(order, new_order_qty, price, trans_id_));
           // If the size change will close the order
           if (!new_open_qty) {
             bids_.erase(bid); // Remove order
-            callbacks_.push_back(TypedCallback::cancel(order));
+            callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
           } else if (price_change) {
             bids_.erase(bid); // Remove order
             add_order(bid->second, new_price);
@@ -324,16 +350,18 @@ OrderBook<OrderPtr>::replace(
         if (size_decrease && (ask->second.open_qty() < std::abs(size_delta))) {
           // Reject the replace
           callbacks_.push_back(
-              TypedCallback::replace_reject(order, "not enough open qty"));
+              TypedCallback::replace_reject(order, 
+                                            "not enough open qty", 
+                                            trans_id_));
         // Else this is fine
         } else {
           // Accept the replace
           callbacks_.push_back(
-              TypedCallback::replace(order, new_order_qty, price));
+              TypedCallback::replace(order, new_order_qty, price, trans_id_));
           // If the size change will close the order
           if (!new_open_qty) {
             asks_.erase(ask); // Remove order
-            callbacks_.push_back(TypedCallback::cancel(order));
+            callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
           } else if (price_change) {
             asks_.erase(ask); // Remove order
             add_order(ask->second, new_price);
@@ -343,7 +371,8 @@ OrderBook<OrderPtr>::replace(
     } 
 
     if (!found) {
-      callbacks_.push_back(TypedCallback::replace_reject(order, "not found"));
+      callbacks_.push_back(
+          TypedCallback::replace_reject(order, "not found", trans_id_));
     }
   }
 
@@ -364,13 +393,8 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
     // If the current order has an equal or better price 
     // than the inbound one
     if (bid->first >= inbound_price) {
-      // if this is the first match
-      if (!matched) {
-        // Increment transacion ID
-        ++trans_id_;  
-        // Set return value
-        matched =  true;
-      }
+      // Set return value
+      matched =  true;
 
       // Adjust tracking values for cross
       cross_orders(inbound, bid->second);
@@ -408,13 +432,8 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
     // If the current order has an equal or better price 
     // than the inbound one
     if (ask->first <= inbound_price) {
-      // if this is the first match
-      if (!matched) {
-        // Increment transacion ID
-        ++trans_id_;  
-        // Set return value
-        matched =  true;
-      }
+      // Set return value
+      matched =  true;
 
       // Adjust tracking values for cross
       cross_orders(inbound, ask->second);
@@ -584,7 +603,7 @@ inline bool
 OrderBook<OrderPtr>::is_valid(const OrderPtr& order)
 {
   if (order->order_qty() == 0) {
-    callbacks_.push_back(TypedCallback::reject(order, "size must be positive"));
+    callbacks_.push_back(TypedCallback::reject(order, "size must be positive", trans_id_));
     return false;
   } else {
     return true;
