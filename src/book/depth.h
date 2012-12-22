@@ -60,17 +60,6 @@ public:
                    Price new_price,
                    Quantity current_qty,
                    Quantity new_qty);
-  // TODO REMOVE
-  /// @brief increase size of a bid order
-  /// @param price the price level of the bid
-  /// @param qty_increase the change in open quantity of the bid
-  //void increase_bid(Price price, Quantity qty_increase);
-
-  // TODO REMOVE
-  /// @brief decrease size of a bid order
-  /// @param price the price level of the bid
-  /// @param qty_decrease the change in open quantity of the bid
-  //void decrease_bid(Price price, Quantity qty_decrease);
 
   /// @brief add a ask order
   /// @param price the price level of the ask
@@ -98,17 +87,6 @@ public:
                    Price new_price,
                    Quantity current_qty,
                    Quantity new_qty);
-  // TODO REMOVE
-  /// @brief increase size of a ask order
-  /// @param price the price level of the ask
-  /// @param qty_increase the change in open quantity of the ask
-  //void increase_ask(Price price, Quantity qty_increase);
-
-  // TODO REMOVE
-  /// @brief decrease size of a ask order
-  /// @param price the price level of the ask
-  /// @param qty_decrease the change in open quantity of the ask
-  //void decrease_ask(Price price, Quantity qty_decrease);
 
   /// @brief does this depth need bid restoration after level erasure
   /// @param restoration_price the price to restore after (out)
