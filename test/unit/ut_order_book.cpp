@@ -2952,7 +2952,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
   BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 1, 0, 0));
 }
 
