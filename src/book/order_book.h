@@ -238,7 +238,7 @@ OrderBook<OrderPtr>::add(const OrderPtr& order)
     Tracker inbound(order);
     matched = add_order(inbound, order_price);
     if (matched) {
-      // Note the filled qty
+      // Note the filled qty in the callback
       accept_cb.ref_qty_ = inbound.filled_qty();
     }
   }
