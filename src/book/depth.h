@@ -44,7 +44,7 @@ public:
   /// @brief add a bid order
   /// @param price the price level of the bid
   /// @param qty the open quantity of the bid
-  void add_bid(Price price, Quantity qty);
+  //void add_bid(Price price, Quantity qty);
 
   /// @brief cancel or fill an order
   /// @param price the price level of the order
@@ -97,7 +97,7 @@ public:
   /// @brief add a ask order
   /// @param price the price level of the ask
   /// @param qty the open quantity of the ask
-  void add_ask(Price price, Quantity qty);
+  //void add_ask(Price price, Quantity qty);
 
   /// @brief cancel or fill a ask order
   /// @param price the price level of the ask
@@ -268,6 +268,7 @@ Depth<SIZE>::add_order(Price price, Quantity qty, bool is_bid)
   }
 }
 
+/*
 template <int SIZE> 
 inline void
 Depth<SIZE>::add_bid(Price price, Quantity qty)
@@ -280,7 +281,7 @@ Depth<SIZE>::add_bid(Price price, Quantity qty)
     level->last_change(last_change_);
   }
 }
-
+*/
 template <int SIZE> 
 inline bool
 Depth<SIZE>::close_order(Price price, Quantity open_qty, bool is_bid)
@@ -394,6 +395,7 @@ Depth<SIZE>::replace_bid(
   return erased;
 } */
 
+/*
 template <int SIZE> 
 inline void
 Depth<SIZE>::add_ask(Price price, Quantity qty)
@@ -406,6 +408,7 @@ Depth<SIZE>::add_ask(Price price, Quantity qty)
     level->last_change(last_change_);
   }
 }
+*/
 
 /*
 template <int SIZE> 
