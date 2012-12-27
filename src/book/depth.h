@@ -68,7 +68,7 @@ public:
   /// @brief change quantity of a bid order
   /// @param price the price level of the bid
   /// @param qty_delta the change in open quantity of the bid (+ or -)
-  void change_qty_bid(Price price, int32_t qty_delta);
+  //void change_qty_bid(Price price, int32_t qty_delta);
   
   /// @brief replace a order
   /// @param current_price the current price level of the order
@@ -108,7 +108,7 @@ public:
   /// @brief change quantity of a ask order
   /// @param price the price level of the ask
   /// @param qty_delta the change in open quantity of the ask (+ or -)
-  void change_qty_ask(Price price, int32_t qty_delta);
+  //void change_qty_ask(Price price, int32_t qty_delta);
 
   /// @brief replace a ask
   /// @param current_price the current price level of the ask
@@ -330,6 +330,7 @@ Depth<SIZE>::change_qty_order(Price price, int32_t qty_delta, bool is_bid)
   // Ignore if not found - may be beyond our depth size
 }
  
+/*
 template <int SIZE> 
 inline void
 Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
@@ -345,7 +346,7 @@ Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
   }
   // Ignore if not found - may be beyond our depth size
 }
- 
+*/ 
 template <int SIZE> 
 inline bool
 Depth<SIZE>::replace_order(
@@ -420,6 +421,7 @@ Depth<SIZE>::close_ask(Price price, Quantity qty)
   return false;
 }
 
+/*
 template <int SIZE> 
 inline void
 Depth<SIZE>::change_qty_ask(Price price, int32_t qty_delta)
@@ -435,7 +437,7 @@ Depth<SIZE>::change_qty_ask(Price price, int32_t qty_delta)
   }
   // Ignore if not found - may be beyond our depth size
 }
-
+*/
 /*
 template <int SIZE> 
 inline bool
