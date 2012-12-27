@@ -42,6 +42,23 @@ public:
     return verify_side_stamps(depth_.asks(), l0, l1, l2, l3, l4);
   }
 
+  bool verify_bbo_changed(bool bid_changed, bool ask_changed)
+  {
+    bool matched = true;
+    ChangeId last_change = depth_.last_published_change();
+    
+    if (depth_.bids()->changed_since(last_change) != bid_changed) {
+      std::cout << "best bid changed incorrect" << std::endl;
+      matched = false;
+    }
+    if (depth_.asks()->changed_since(last_change) != ask_changed) {
+      std::cout << "best ask changed incorrect" << std::endl;
+      matched = false;
+    }
+    reset();
+    return matched;
+  }
+
   bool verify_bbo_stamps(ChangeId bid_stamp, ChangeId ask_stamp)
   {
     bool matched = true;

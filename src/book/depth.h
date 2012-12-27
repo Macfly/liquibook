@@ -4,6 +4,7 @@
 #include "liquibook_book_export.h"
 #include "depth_level.h"
 #include "base/types.h"
+#include <map>
 #include <cmath>
 
 namespace liquibook { namespace book {
@@ -34,16 +35,35 @@ public:
   /// @brief get the last ask level
   DepthLevel* last_ask_level();
 
+  /// @brief add an order
+  /// @param price the price level of the order
+  /// @param qty the open quantity of the order
+  /// @param is_bid indicator of bid or ask
+  void add_order(Price price, Quantity qty, bool is_bid);
+
   /// @brief add a bid order
   /// @param price the price level of the bid
   /// @param qty the open quantity of the bid
   void add_bid(Price price, Quantity qty);
+
+  /// @brief cancel or fill an order
+  /// @param price the price level of the order
+  /// @param open_qty the open quantity of the order
+  /// @param is_bid indicator of bid or ask
+  /// @return true if the close erased a visible level
+  bool close_order(Price price, Quantity open_qty, bool is_bid);
 
   /// @brief cancel or fill a bid order
   /// @param price the price level of the bid
   /// @param qty the open quantity of the bid
   /// @return true if the close erased a visible level
   bool close_bid(Price price, Quantity qty);
+
+  /// @brief change quantity of an order
+  /// @param price the price level of the order
+  /// @param qty_delta the change in open quantity of the order (+ or -)
+  /// @param is_bid indicator of bid or ask
+  void change_qty_order(Price price, int32_t qty_delta, bool is_bid);
 
   /// @brief change quantity of a bid order
   /// @param price the price level of the bid
@@ -111,6 +131,17 @@ private:
   DepthLevel levels_[SIZE*2];
   ChangeId last_change_;
   ChangeId last_published_change_;
+  typedef std::map<Price, DepthLevel, std::greater<Price> > BidLevelMap;
+  typedef std::map<Price, DepthLevel, std::less<Price> > AskLevelMap;
+  BidLevelMap excess_bid_levels_;
+  AskLevelMap excess_ask_levels_;
+
+  /// @brief find the level associated with the price
+  /// @param price the price to find
+  /// @param is_bid indicator of bid or ask
+  /// @param should_create should a level for the price be created, if necessary
+  /// @return the level, or NULL if not found and full
+  DepthLevel* find_level(Price price, bool is_bid, bool should_create = true);
 
   /// @brief find the level associated with the bid price
   /// @param price the price to find
@@ -126,16 +157,16 @@ private:
 
   /// @brief insert a new level before this level and shift down
   /// @param level the level to insert before
-  /// @param last_level the last level of the bids or asks
+  /// @param is_bid indicator of bid or ask
   /// @param price the price to initialize the level at
   void insert_level_before(DepthLevel* level,
-                           DepthLevel* last_level,
+                           bool is_bid,
                            Price price);
 
   /// @brief erase a level and shift up
   /// @param level the level to erase
-  /// @param last_level the last level of the bids or asks
-  void erase_level(DepthLevel* level, DepthLevel* last_level);
+  /// @param is_bid indicator of bid or ask
+  void erase_level(DepthLevel* level, bool is_bid);
 };
 
 template <int SIZE> 
@@ -209,6 +240,18 @@ Depth<SIZE>::last_ask_level()
   return levels_ + (SIZE * 2 - 1);
 }
 
+template <int SIZE> 
+inline void
+Depth<SIZE>::add_order(Price price, Quantity qty, bool is_bid)
+{
+  ChangeId last_change_copy = last_change_;
+  DepthLevel* level = find_level(price, is_bid);
+  if (level) {
+    last_change_ = last_change_copy + 1; // Ensure incremented
+    level->add_order(qty);
+    level->last_change(last_change_);
+  }
+}
 
 template <int SIZE> 
 inline void
@@ -225,13 +268,14 @@ Depth<SIZE>::add_bid(Price price, Quantity qty)
 
 template <int SIZE> 
 inline bool
-Depth<SIZE>::close_bid(Price price, Quantity qty)
+Depth<SIZE>::close_order(Price price, Quantity open_qty, bool is_bid)
 {
-  DepthLevel* level = find_bid(price, false);
+  DepthLevel* level = find_level(price, is_bid, false);
   if (level) {
-    if (level->close_order(qty)) {
-      erase_level(level, last_bid_level());
-      return true;  // Level erased
+    // If this is the last order on the level
+    if (level->close_order(open_qty)) {
+      erase_level(level, is_bid);
+    // Else, mark the level as changed
     } else {
       level->last_change(++last_change_);
     }
@@ -239,6 +283,38 @@ Depth<SIZE>::close_bid(Price price, Quantity qty)
   return false;
 }
 
+template <int SIZE> 
+inline bool
+Depth<SIZE>::close_bid(Price price, Quantity qty)
+{
+  DepthLevel* level = find_bid(price, false);
+  if (level) {
+    if (level->close_order(qty)) {
+      erase_level(level, true);
+      return true;
+    } else {
+      level->last_change(++last_change_);
+    }
+  }
+  return false;
+}
+
+template <int SIZE> 
+inline void
+Depth<SIZE>::change_qty_order(Price price, int32_t qty_delta, bool is_bid)
+{
+  DepthLevel* level = find_level(price, is_bid, false);
+  if (level && qty_delta) {
+    if (qty_delta > 0) {
+      level->increase_qty(Quantity(qty_delta));
+    } else {
+      level->decrease_qty(Quantity(std::abs(qty_delta)));
+    }
+    level->last_change(++last_change_);
+  }
+  // Ignore if not found - may be beyond our depth size
+}
+ 
 template <int SIZE> 
 inline void
 Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
@@ -296,7 +372,7 @@ Depth<SIZE>::close_ask(Price price, Quantity qty)
   DepthLevel* level = find_ask(price, false);
   if (level) {
     if (level->close_order(qty)) {
-      erase_level(level, last_ask_level());
+      erase_level(level, false);
       return true;  // Level erased
     } else {
       level->last_change(++last_change_);
@@ -386,6 +462,70 @@ Depth<SIZE>::needs_ask_restoration(Price& restoration_price)
 
 template <int SIZE> 
 DepthLevel*
+Depth<SIZE>::find_level(Price price, bool is_bid, bool should_create)
+{
+  // Find starting and ending point
+  DepthLevel* level = is_bid ? bids() : asks();
+  const DepthLevel* past_end = is_bid ? asks() : end();
+  // Linear search each level
+  for ( ; level != past_end; ++level) {
+    if (level->price() == price) {
+      break;
+    // Else if the level is blank
+    } else if (should_create && level->price() == INVALID_LEVEL_PRICE) {
+      level->init(price, false);  // Change ID will be assigned by caller
+      break;  // Blank slot
+    // Else if the bid level price is too low
+    } else if (is_bid && should_create && level->price() < price) {
+      // Insert a slot
+      insert_level_before(level, is_bid, price);
+      break;
+    // Else if the ask level price is too high
+    } else if ((!is_bid) && should_create && level->price() > price) {
+      // Insert a slot
+      insert_level_before(level, is_bid, price);
+      break;
+    }
+  }
+  // If level was not found
+  if (level == past_end) {
+    if (is_bid) {
+      // Search in excess bid levels
+      BidLevelMap::iterator find_result = excess_bid_levels_.find(price);
+      // If found in excess levels, return location
+      if (find_result != excess_bid_levels_.end()) {
+        level = &find_result->second;
+      // Else not found, insert if one should be created
+      } else if (should_create) {
+        DepthLevel new_level;
+        new_level.init(price, true);
+        std::pair<BidLevelMap::iterator, bool> insert_result;
+        insert_result = excess_bid_levels_.insert(
+            std::make_pair(price, new_level));
+        level = &insert_result.first->second;
+      }
+    } else {
+      // Search in excess ask levels
+      AskLevelMap::iterator find_result = excess_ask_levels_.find(price);
+      // If found in excess levels, return location
+      if (find_result != excess_ask_levels_.end()) {
+        level = &find_result->second;
+      // Else not found, insert if one should be created
+      } else if (should_create) {
+        DepthLevel new_level;
+        new_level.init(price, true);
+        std::pair<AskLevelMap::iterator, bool> insert_result;
+        insert_result = excess_ask_levels_.insert(
+            std::make_pair(price, new_level));
+        level = &insert_result.first->second;
+      }
+    }
+  }
+  return level;
+}
+
+template <int SIZE> 
+DepthLevel*
 Depth<SIZE>::find_bid(Price price, bool should_create)
 {
   DepthLevel* past_end = asks();
@@ -397,12 +537,12 @@ Depth<SIZE>::find_bid(Price price, bool should_create)
       break;
     // Else if the level is blank
     } else if (should_create && bid->price() == INVALID_LEVEL_PRICE) {
-      bid->init(price);  // Change ID will be assigned by caller
+      bid->init(price, false);  // Change ID will be assigned by caller
       break;  // Blank slot
     // Else if the level price is too low
     } else if (should_create && bid->price() < price) {
       // Insert a slot
-      insert_level_before(bid, last_bid_level(), price);
+      insert_level_before(bid, true, price);
       break;
     }
   }
@@ -425,12 +565,12 @@ Depth<SIZE>::find_ask(Price price, bool should_create)
       break;
     // Else if the level is blank
     } else if (should_create && ask->price() == INVALID_LEVEL_PRICE) {
-      ask->init(price);  // Change ID will be assigned by caller
+      ask->init(price, false);  // Change ID will be assigned by caller
       break;  // Blank slot
     // Else if the level price is too high
     } else if (should_create && ask->price() > price) {
       // Insert a slot
-      insert_level_before(ask, last_ask_level(), price);
+      insert_level_before(ask, false, price);
       break;
     }
   }
@@ -443,11 +583,27 @@ Depth<SIZE>::find_ask(Price price, bool should_create)
 template <int SIZE> 
 void
 Depth<SIZE>::insert_level_before(DepthLevel* level, 
-                                 DepthLevel* last_level, 
+                                 bool is_bid,
                                  Price price)
 {
+  DepthLevel* last_side_level = is_bid ? last_bid_level() : last_ask_level();
+
+  // If the last level has valid data
+  if (last_side_level->price() != INVALID_LEVEL_PRICE) {
+    DepthLevel excess_level;
+    excess_level.init(0, true);  // Will assign over price
+    excess_level = *last_side_level;
+    // Save it in excess levels
+    if (is_bid) {
+      excess_bid_levels_.insert(
+      std::make_pair(last_side_level->price(), excess_level));
+    } else {
+      excess_ask_levels_.insert(
+      std::make_pair(last_side_level->price(), excess_level));
+    }
+  }
   // Back from end
-  DepthLevel* current_level = last_level - 1;
+  DepthLevel* current_level = last_side_level - 1;
   // Increment only once
   ++last_change_;
   // Last level to process is one passed in
@@ -462,35 +618,66 @@ Depth<SIZE>::insert_level_before(DepthLevel* level,
     // Move back one
     --current_level;
    }
-   level->init(price);
+   level->init(price, false);
 }
 
 template <int SIZE> 
 void
-Depth<SIZE>::erase_level(DepthLevel* level, DepthLevel* last_level)
+Depth<SIZE>::erase_level(DepthLevel* level, bool is_bid)
 {
-  // Increment once
-  ++last_change_;
-  DepthLevel* current_level = level;
-  // Level to end
-  while (current_level < last_level) {
-    // If this is the first level, or the level to be overwritten is valid
-    // (must force first level, when called already should be invalidated)
-    if ((current_level->price() != INVALID_LEVEL_PRICE) ||
-        (current_level == level)) {
-      // Copy to current level from one lower
-      *current_level = *(current_level + 1);
-      // Mark the current level as updated
-      current_level->last_change(last_change_);
+  if (level->is_excess()) {
+    if (is_bid) {
+      excess_bid_levels_.erase(level->price());
+    } else {
+      excess_ask_levels_.erase(level->price());
     }
-    // Move forward one
-    ++current_level;
-  }
+  } else {
+    DepthLevel* last_side_level = is_bid ? last_bid_level() : last_ask_level();
+    // Increment once
+    ++last_change_;
+    DepthLevel* current_level = level;
+    // Level to end
+    while (current_level < last_side_level) {
+      // If this is the first level, or the level to be overwritten is valid
+      // (must force first level, when called already should be invalidated)
+      if ((current_level->price() != INVALID_LEVEL_PRICE) ||
+          (current_level == level)) {
+        // Copy to current level from one lower
+        *current_level = *(current_level + 1);
+        // Mark the current level as updated
+        current_level->last_change(last_change_);
+      }
+      // Move forward one
+      ++current_level;
+    }
 
-  if (last_level->price() != INVALID_LEVEL_PRICE) {
-    // Last level is blank
-    last_level->init(INVALID_LEVEL_PRICE);
-    last_level->last_change(last_change_);
+    // If I erased the last level, or the last level was valid
+    if ((level == last_side_level) ||
+        (last_side_level->price() != INVALID_LEVEL_PRICE)) {
+      // Attempt to restore last level from excess
+      if (is_bid) {
+        BidLevelMap::iterator best_bid = excess_bid_levels_.begin();
+        if (best_bid != excess_bid_levels_.end()) {
+          *last_side_level = best_bid->second;
+          excess_bid_levels_.erase(best_bid);
+        } else {
+          // Nothing to restore, last level is blank
+          last_side_level->init(INVALID_LEVEL_PRICE, false);
+          last_side_level->last_change(last_change_);
+        }
+      } else {
+        AskLevelMap::iterator best_ask = excess_ask_levels_.begin();
+        if (best_ask != excess_ask_levels_.end()) {
+          *last_side_level = best_ask->second;
+          excess_ask_levels_.erase(best_ask);
+        } else {
+          // Nothing to restore, last level is blank
+          last_side_level->init(INVALID_LEVEL_PRICE, false);
+          last_side_level->last_change(last_change_);
+        }
+      }
+      last_side_level->last_change(last_change_);
+    }
   }
 }
 
