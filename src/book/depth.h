@@ -70,16 +70,29 @@ public:
   /// @param qty_delta the change in open quantity of the bid (+ or -)
   void change_qty_bid(Price price, int32_t qty_delta);
   
+  /// @brief replace a order
+  /// @param current_price the current price level of the order
+  /// @param new_price the new price level of the order
+  /// @param current_qty the current open quantity of the order
+  /// @param new_qty the new open quantity of the order
+  /// @param is_bid indicator of bid or ask
+  /// @return true if the close erased a visible level
+  bool replace_order(Price current_price,
+                     Price new_price,
+                     Quantity current_qty,
+                     Quantity new_qty,
+                     bool is_bid);
+
   /// @brief replace a bid
   /// @param current_price the current price level of the bid
   /// @param new_price the new price level of the bid
   /// @param current_qty the current open quantity of the bid
   /// @param new_qty the new open quantity of the bid
   /// @return true if the close erased a visible level
-  bool replace_bid(Price current_price,
+  /*bool replace_bid(Price current_price,
                    Price new_price,
                    Quantity current_qty,
-                   Quantity new_qty);
+                   Quantity new_qty); */
 
   /// @brief add a ask order
   /// @param price the price level of the ask
@@ -103,10 +116,12 @@ public:
   /// @param current_qty the current open quantity of the ask
   /// @param new_qty the new open quantity of the ask
   /// @return true if the close erased a visible level
+/*
   bool replace_ask(Price current_price,
                    Price new_price,
                    Quantity current_qty,
                    Quantity new_qty);
+*/
 
   /// @brief does this depth need bid restoration after level erasure
   /// @param restoration_price the price to restore after (out)
@@ -333,6 +348,30 @@ Depth<SIZE>::change_qty_bid(Price price, int32_t qty_delta)
  
 template <int SIZE> 
 inline bool
+Depth<SIZE>::replace_order(
+  Price current_price,
+  Price new_price,
+  Quantity current_qty,
+  Quantity new_qty,
+  bool is_bid)
+{
+  bool erased = false;
+  // If the price is unchanged, modify the quantity only
+  if (current_price == new_price) {
+    int32_t qty_delta = ((int32_t)new_qty) - current_qty;
+    change_qty_order(current_price, qty_delta, is_bid);
+  // Else this is a price change
+  } else {
+    // Add the new order quantity first, and possibly insert a new level
+    add_order(new_price, new_qty, is_bid);
+    // Remove the old order quantity, and possibly erase a level
+    erased = close_order(current_price, current_qty, is_bid);
+  }
+  return erased;
+}
+/*
+template <int SIZE> 
+inline bool
 Depth<SIZE>::replace_bid(
   Price current_price,
   Price new_price,
@@ -350,7 +389,7 @@ Depth<SIZE>::replace_bid(
     erased = close_bid(current_price, current_qty);
   }
   return erased;
-}
+} */
 
 template <int SIZE> 
 inline void
@@ -397,6 +436,7 @@ Depth<SIZE>::change_qty_ask(Price price, int32_t qty_delta)
   // Ignore if not found - may be beyond our depth size
 }
 
+/*
 template <int SIZE> 
 inline bool
 Depth<SIZE>::replace_ask(
@@ -417,7 +457,7 @@ Depth<SIZE>::replace_ask(
   }
   return erased;
 }
-
+*/
 template <int SIZE> 
 inline bool
 Depth<SIZE>::needs_bid_restoration(Price& restoration_price)

@@ -691,7 +691,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceBid)
   BOOST_REQUIRE(verify_level(bid, 1232, 1, 100));
 
   // Replace bid
-  depth.replace_bid(1235, 1237, 200, 200);
+  depth.replace_order(1235, 1237, 200, 200, true);
 
   // Verify Levels 
   bid = depth.bids();
@@ -723,7 +723,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceAsk)
   BOOST_REQUIRE(verify_level(ask, 1236, 1, 300));
 
   // Replace ask
-  depth.replace_ask(1235, 1237, 200, 200);
+  depth.replace_order(1235, 1237, 200, 200, false);
 
   // Verify Levels 
   ask = depth.asks();

@@ -126,16 +126,10 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
       // Modify the order itself.  Do this first so restoration is accurate
       cb.order_->replace(cb.ref_qty_, cb.ref_price_);
 
-      if (cb.order_->is_buy()) {
-        if (depth_.replace_bid(current_price, cb.ref_price_, 
-                               current_qty, cb.order_->open_qty())) {
-          restore_last_bid_level(cb.trans_id_);
-        }
-      } else {
-        if (depth_.replace_ask(current_price, cb.ref_price_, 
-                               current_qty, cb.order_->open_qty())) {
-          restore_last_ask_level(cb.trans_id_);
-        }
+      if (depth_.replace_order(current_price, cb.ref_price_, 
+                               current_qty, cb.order_->open_qty(),
+                               cb.order_->is_buy())) {
+        restore_last_bid_level(cb.trans_id_);
       }
 
       break;
