@@ -57,7 +57,7 @@ public:
   /// @param price the price level of the bid
   /// @param qty the open quantity of the bid
   /// @return true if the close erased a visible level
-  bool close_bid(Price price, Quantity qty);
+  //bool close_bid(Price price, Quantity qty);
 
   /// @brief change quantity of an order
   /// @param price the price level of the order
@@ -103,7 +103,7 @@ public:
   /// @param price the price level of the ask
   /// @param qty the open quantity of the ask
   /// @return true if the close erased a visible level
-  bool close_ask(Price price, Quantity qty);
+  //bool close_ask(Price price, Quantity qty);
 
   /// @brief change quantity of a ask order
   /// @param price the price level of the ask
@@ -290,6 +290,7 @@ Depth<SIZE>::close_order(Price price, Quantity open_qty, bool is_bid)
     // If this is the last order on the level
     if (level->close_order(open_qty)) {
       erase_level(level, is_bid);
+      return true;
     // Else, mark the level as changed
     } else {
       level->last_change(++last_change_);
@@ -298,6 +299,7 @@ Depth<SIZE>::close_order(Price price, Quantity open_qty, bool is_bid)
   return false;
 }
 
+/*
 template <int SIZE> 
 inline bool
 Depth<SIZE>::close_bid(Price price, Quantity qty)
@@ -313,7 +315,7 @@ Depth<SIZE>::close_bid(Price price, Quantity qty)
   }
   return false;
 }
-
+*/
 template <int SIZE> 
 inline void
 Depth<SIZE>::change_qty_order(Price price, int32_t qty_delta, bool is_bid)
@@ -405,6 +407,7 @@ Depth<SIZE>::add_ask(Price price, Quantity qty)
   }
 }
 
+/*
 template <int SIZE> 
 inline bool
 Depth<SIZE>::close_ask(Price price, Quantity qty)
@@ -420,6 +423,7 @@ Depth<SIZE>::close_ask(Price price, Quantity qty)
   }
   return false;
 }
+*/
 
 /*
 template <int SIZE> 

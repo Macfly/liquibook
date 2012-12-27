@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(TestCloseBid)
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
   depth.add_order(1234, 500, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
-  BOOST_REQUIRE(!depth.close_bid(1234, 300)); // Does not erase
+  BOOST_REQUIRE(!depth.close_order(1234, 300, true)); // Does not erase
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
   const DepthLevel* first_bid = depth.bids();
   BOOST_REQUIRE(verify_level(first_bid, 1234, 1, 500));
@@ -195,9 +195,9 @@ BOOST_AUTO_TEST_CASE(TestCloseEraseBid)
   BOOST_REQUIRE(cc.verify_bid_changed(0, 1, 0, 0, 0)); cc.reset();
   depth.add_order(1233, 200, true);
   BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 1, 0, 0)); cc.reset();
-  BOOST_REQUIRE(!depth.close_bid(1235, 300)); // Does not erase
+  BOOST_REQUIRE(!depth.close_order(1235, 300, true)); // Does not erase
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
-  BOOST_REQUIRE(depth.close_bid(1235, 400)); // Erase
+  BOOST_REQUIRE(depth.close_order(1235, 400, true)); // Erase
   BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0)); cc.reset();
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1234, 1, 500));
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(TestAddCloseAddBid)
   ChangedChecker cc(depth);
   depth.add_order(1234, 300, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
-  depth.close_bid(1234, 300);
+  depth.close_order(1234, 300, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
   depth.add_order(1233, 200, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(TestAddCloseAddHigherBid)
   ChangedChecker cc(depth);
   depth.add_order(1234, 300, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
-  depth.close_bid(1234, 300);
+  depth.close_order(1234, 300, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
   depth.add_order(1235, 200, true);
   BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0)); cc.reset();
@@ -254,11 +254,11 @@ BOOST_AUTO_TEST_CASE(TestCloseBidsFreeLevels)
   BOOST_REQUIRE(cc.verify_bid_changed(0, 1, 0, 0, 0)); cc.reset();
   depth.add_order(1231, 500, true);
   BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 1)); cc.reset();
-  depth.close_bid(1234, 900); // No erase
+  depth.close_order(1234, 900, true); // No erase
   BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 1, 0, 0)); cc.reset();
-  depth.close_bid(1232, 100); // Erase
+  depth.close_order(1232, 100, true); // Erase
   BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 1, 1)); cc.reset();
-  depth.close_bid(1236, 300); // Erase
+  depth.close_order(1236, 300, true); // Erase
   BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 1, 0)); cc.reset();
   const DepthLevel* bid = depth.bids();
   BOOST_REQUIRE(verify_level(bid, 1235, 2,  600));
@@ -499,7 +499,7 @@ BOOST_AUTO_TEST_CASE(TestCloseAsk)
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
   depth.add_order(1234, 500, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
-  BOOST_REQUIRE(!depth.close_ask(1234, 300)); // Does not erase
+  BOOST_REQUIRE(!depth.close_order(1234, 300, false)); // Does not erase
   const DepthLevel* first_ask = depth.asks();
   BOOST_REQUIRE(verify_level(first_ask, 1234, 1, 500));
 }
@@ -514,9 +514,9 @@ BOOST_AUTO_TEST_CASE(TestCloseEraseAsk)
   BOOST_REQUIRE(cc.verify_ask_changed(0, 1, 0, 0, 0)); cc.reset();
   depth.add_order(1233, 400, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
-  BOOST_REQUIRE(!depth.close_ask(1233, 300)); // Does not erase
+  BOOST_REQUIRE(!depth.close_order(1233, 300, false)); // Does not erase
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
-  BOOST_REQUIRE(depth.close_ask(1233, 400)); // Erase
+  BOOST_REQUIRE(depth.close_order(1233, 400, false)); // Erase
   BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0)); cc.reset();
   const DepthLevel* first_ask = depth.asks();
   BOOST_REQUIRE(verify_level(first_ask, 1234, 1, 500));
@@ -528,7 +528,7 @@ BOOST_AUTO_TEST_CASE(TestAddCloseAddAsk)
   ChangedChecker cc(depth);
   depth.add_order(1234, 300, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
-  depth.close_ask(1234, 300);
+  depth.close_order(1234, 300, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
   depth.add_order(1233, 200, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_CASE(TestAddCloseAddHigherAsk)
   ChangedChecker cc(depth);
   depth.add_order(1234, 300, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
-  depth.close_ask(1234, 300);
+  depth.close_order(1234, 300, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
   depth.add_order(1235, 200, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
@@ -572,11 +572,11 @@ BOOST_AUTO_TEST_CASE(TestCloseAsksFreeLevels)
   BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 1, 0)); cc.reset();
   depth.add_order(1231, 500, false);
   BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0)); cc.reset();
-  depth.close_ask(1234, 900); // does not erase
+  depth.close_order(1234, 900, false); // does not erase
   BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 1, 0, 0)); cc.reset();
-  depth.close_ask(1232, 100); // erase
+  depth.close_order(1232, 100, false); // erase
   BOOST_REQUIRE(cc.verify_ask_changed(0, 1, 1, 1, 1)); cc.reset();
-  depth.close_ask(1236, 100);
+  depth.close_order(1236, 100, false);
   BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 1, 0)); cc.reset();
   const DepthLevel* ask = depth.asks();
   BOOST_REQUIRE(verify_level(ask, 1231, 2, 1200));
