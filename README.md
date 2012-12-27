@@ -1,12 +1,11 @@
-liquibook
-=========
+liquibook =========
 
 Open source limit order book matching engine from [OCI](http://ociweb.com)
 
 ## Features
 * Low-level components for order matching and aggregate depth tracking
 * Memory-efficiency: minimal copying of data to internal structures
-* Speed: up to __1.6 million__ inserts per second without depth tracking (63 thousand with) on commodity hardware
+* Speed: up to __1.5 million__ inserts per second without depth tracking.  See full [performance history](liquibook/blob/master/PERFORMANCE.md).
 
 ## Flexibility
 * Works with or without aggregate depth tracking

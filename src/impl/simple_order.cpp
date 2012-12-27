@@ -96,10 +96,10 @@ SimpleOrder::cancel()
 }
 
 void
-SimpleOrder::replace(Quantity new_qty, Price new_price)
+SimpleOrder::replace(Quantity new_order_qty, Price new_price)
 {
   if (os_accepted == state_) {
-    order_qty_ = new_qty;
+    order_qty_ = new_order_qty;
     price_ = new_price;
   }
 }
