@@ -10,7 +10,7 @@
 namespace liquibook { namespace impl {
 
 template <int SIZE = 5>
-class LIQUIBOOK_IMPL_Export SimpleOrderBook : 
+class SimpleOrderBook : 
       public book::OrderBook<SimpleOrder*> {
 public:
   typedef typename book::Depth<SIZE> SimpleDepth;

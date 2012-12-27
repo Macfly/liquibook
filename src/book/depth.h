@@ -10,7 +10,7 @@
 namespace liquibook { namespace book {
 
 template <int SIZE=5> 
-class LIQUIBOOK_BOOK_Export Depth {
+class Depth {
 public:
   /// @brief construct
   Depth();
