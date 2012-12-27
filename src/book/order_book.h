@@ -565,14 +565,14 @@ OrderBook<OrderPtr>::populate_bid_depth_level_after(const Price& price,
   if (bid != bids_.end()) {
     // Remember the after price
     Price after_price = bid->first;
-    level.init(after_price);
+    level.init(after_price, false);
     do {
       // Add this order to the result
       level.add_order(bid->second.open_qty());
     } while ((++bid != bids_.end()) && bid->first == after_price);
   // Else there is no price after
   } else {
-    level.init(0);
+    level.init(0, false);
   }
 }
 
@@ -587,14 +587,14 @@ OrderBook<OrderPtr>::populate_ask_depth_level_after(const Price& price,
   if (ask != asks_.end()) {
     // Remember the after price
     Price after_price = ask->first;
-    level.init(after_price);
+    level.init(after_price, false);
     do {
       // Add this order to the result
       level.add_order(ask->second.open_qty());
     } while ((++ask != asks_.end()) && ask->first == after_price);
   // Else there is no price after
   } else {
-    level.init(0);
+    level.init(0, false);
   }
 }
 
