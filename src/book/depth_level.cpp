@@ -20,6 +20,9 @@ DepthLevel::operator=(const DepthLevel& rhs)
   if (rhs.price_ != INVALID_LEVEL_PRICE) {
     last_change_ = rhs.last_change_;
   }
+
+  // Do not copy is_excess_
+
   return *this;
 }
 
@@ -30,11 +33,12 @@ DepthLevel::price() const
 }
 
 void
-DepthLevel::init(Price price)
+DepthLevel::init(Price price, bool is_excess)
 {
   price_ = price;
   order_count_ = 0;
   aggregate_qty_ = 0;
+  is_excess_ = is_excess;
 }
 
 uint32_t
@@ -62,8 +66,12 @@ DepthLevel::close_order(Quantity qty)
 {
   bool empty = false;
   // If this is the last order, reset the level
-  if (order_count_ == 1) {
-    init(0);  // Reset
+  if (order_count_ == 0) {
+      throw std::runtime_error("DepthLevel::close_order "
+                               "order count too low");
+  } else if (order_count_ == 1) {
+    order_count_ = 0;
+    aggregate_qty_ = 0;
     empty = true;
   // Else, decrement/decrease
   } else {
@@ -71,7 +79,7 @@ DepthLevel::close_order(Quantity qty)
     if (aggregate_qty_ >= qty) {
       aggregate_qty_ -= qty;
     } else {
-      throw std::runtime_error("DepthLevel::remove_order "
+      throw std::runtime_error("DepthLevel::close_order "
                                "level quantity too low");
     }
   }

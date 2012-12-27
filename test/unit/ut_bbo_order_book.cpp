@@ -1,5 +1,5 @@
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE liquibook_OrderBook
+#define BOOST_TEST_MODULE liquibook_BboOrderBook
 #include <boost/test/unit_test.hpp>
 #include "changed_checker.h"
 #include "book/order_book.h"
@@ -15,8 +15,8 @@ using book::OrderTracker;
 using impl::SimpleOrder;
 
 typedef OrderTracker<SimpleOrder*> SimpleTracker;
-typedef impl::SimpleOrderBook<5> SimpleOrderBook;
-typedef test::ChangedChecker<5> ChangedChecker;
+typedef impl::SimpleOrderBook<1> SimpleOrderBook;
+typedef test::ChangedChecker<1> ChangedChecker;
 typedef typename SimpleOrderBook::SimpleDepth SimpleDepth;
 
 template <class OrderBook, class OrderPtr>
@@ -55,12 +55,11 @@ bool replace_and_verify(OrderBook& order_book,
                         const OrderPtr& order,
                         int32_t size_change,
                         Price new_price = PRICE_UNCHANGED,
-                        impl::OrderState expected_state = impl::os_accepted,
-                        Quantity match_qty = 0)
+                        impl::OrderState expected_state = impl::os_accepted)
 {
   // Calculate
   Quantity expected_order_qty = order->order_qty() + size_change;
-  Quantity expected_open_qty = order->open_qty() + size_change - match_qty;
+  Quantity expected_open_qty = order->open_qty() + size_change;
   Price expected_price = 
       (new_price == PRICE_UNCHANGED) ? order->price() : new_price;
 
@@ -105,6 +104,10 @@ bool verify_depth(const DepthLevel& level,
   }
   if (level.aggregate_qty() != qty) {
     std::cout << "Quantity " << level.aggregate_qty() << std::endl;
+    matched = false;
+  }
+  if (level.is_excess()) {
+    std::cout << "Marked as excess" << std::endl;
     matched = false;
   }
   return matched;
@@ -294,7 +297,6 @@ BOOST_AUTO_TEST_CASE(TestAddCompleteBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -369,7 +371,6 @@ BOOST_AUTO_TEST_CASE(TestAddMultiMatchBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 2, 500));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Verify sizes
   BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
@@ -422,9 +423,7 @@ BOOST_AUTO_TEST_CASE(TestAddMultiMatchAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(9250, 2, 600));
-  BOOST_REQUIRE(dc.verify_bid(9248, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(9251, 2, 500));
-  BOOST_REQUIRE(dc.verify_ask(9252, 1, 100));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -438,7 +437,6 @@ BOOST_AUTO_TEST_CASE(TestAddMultiMatchAsk)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(9248, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(9251, 2, 500));
-  BOOST_REQUIRE(dc.verify_ask(9252, 1, 100));
 
   // Verify sizes
   BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
@@ -471,8 +469,6 @@ BOOST_AUTO_TEST_CASE(TestAddPartialMatchBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(7250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(7251, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(7252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(7253, 1, 300));
 
   // Match - partial
   { BOOST_REQUIRE_NO_THROW(
@@ -488,9 +484,7 @@ BOOST_AUTO_TEST_CASE(TestAddPartialMatchBid)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(7251, 1, 150));
-  BOOST_REQUIRE(dc.verify_bid(7250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(7252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(7253, 1, 300));
 
   // Verify remaining
   BOOST_REQUIRE_EQUAL(&ask1, order_book.asks().begin()->second.ptr());
@@ -519,7 +513,6 @@ BOOST_AUTO_TEST_CASE(TestAddPartialMatchAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 350));
-  BOOST_REQUIRE(dc.verify_bid(1250, 2, 300));
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Match - partial
@@ -538,7 +531,6 @@ BOOST_AUTO_TEST_CASE(TestAddPartialMatchAsk)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 2, 300));
   BOOST_REQUIRE(dc.verify_ask(1251, 1,  50));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Verify remaining
   BOOST_REQUIRE_EQUAL(&bid0, order_book.bids().begin()->second.ptr());
@@ -568,7 +560,6 @@ BOOST_AUTO_TEST_CASE(TestAddMultiPartialMatchBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 2, 500));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Match - partial
   { BOOST_REQUIRE_NO_THROW(
@@ -585,7 +576,6 @@ BOOST_AUTO_TEST_CASE(TestAddMultiPartialMatchBid)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 250));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Verify remaining
@@ -615,7 +605,6 @@ BOOST_AUTO_TEST_CASE(TestAddMultiPartialMatchAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 2, 570));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Match - partial
@@ -634,7 +623,6 @@ BOOST_AUTO_TEST_CASE(TestAddMultiPartialMatchAsk)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 130));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Verify remaining
   BOOST_REQUIRE_EQUAL(&bid0, order_book.bids().begin()->second.ptr());
@@ -660,7 +648,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchBid)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 900));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
 
   // Match - repeated
   { BOOST_REQUIRE_NO_THROW(
@@ -672,7 +659,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchBid)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 800));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
 
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&bid1, 300, 1251 * 300);
@@ -683,7 +669,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchBid)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 500));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
 
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&bid1, 200, 1251 * 200);
@@ -694,7 +679,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchBid)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 300));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
 
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&bid1, 300, 1251 * 300);
@@ -729,7 +713,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 900));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   BOOST_REQUIRE_EQUAL(&ask1, order_book.asks().begin()->second.ptr());
 
@@ -743,7 +726,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchAsk)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 800));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&ask1, 300, 1251 * 300);
@@ -754,7 +736,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchAsk)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 500));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&ask1, 200, 1251 * 200);
@@ -765,7 +746,6 @@ BOOST_AUTO_TEST_CASE(TestRepeatMatchAsk)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&ask1, 300, 1251 * 300);
@@ -804,7 +784,6 @@ BOOST_AUTO_TEST_CASE(TestAddMarketOrderBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -843,7 +822,6 @@ BOOST_AUTO_TEST_CASE(TestAddMarketOrderAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Match - complete
@@ -884,7 +862,6 @@ BOOST_AUTO_TEST_CASE(TestAddMarketOrderBidMultipleMatch)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(12500, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(12510, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(12520, 1, 300));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -924,7 +901,6 @@ BOOST_AUTO_TEST_CASE(TestAddMarketOrderAskMultipleMatch)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(12510, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(12500, 1, 400));
   BOOST_REQUIRE(dc.verify_ask(12520, 1, 100));
 
   // Match - complete
@@ -963,7 +939,6 @@ BOOST_AUTO_TEST_CASE(TestMatchMarketOrderBid)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
 
   // Match - complete
@@ -1001,7 +976,6 @@ BOOST_AUTO_TEST_CASE(TestMatchMarketOrderAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Match - complete
@@ -1018,8 +992,6 @@ BOOST_AUTO_TEST_CASE(TestMatchMarketOrderAsk)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 }
 
 BOOST_AUTO_TEST_CASE(TestMatchMultipleMarketOrderBid)
@@ -1043,7 +1015,6 @@ BOOST_AUTO_TEST_CASE(TestMatchMultipleMarketOrderBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -1060,9 +1031,7 @@ BOOST_AUTO_TEST_CASE(TestMatchMultipleMarketOrderBid)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1253, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 }
 
 
@@ -1086,7 +1055,6 @@ BOOST_AUTO_TEST_CASE(TestMatchMultipleMarketOrderAsk)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Match - partiaL
@@ -1104,7 +1072,6 @@ BOOST_AUTO_TEST_CASE(TestMatchMultipleMarketOrderAsk)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 }
 
@@ -1128,7 +1095,6 @@ BOOST_AUTO_TEST_CASE(TestCancelBid)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Cancel bid
   BOOST_REQUIRE(cancel_and_verify(order_book, &bid0, impl::os_cancelled));
@@ -1137,7 +1103,6 @@ BOOST_AUTO_TEST_CASE(TestCancelBid)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(0,    0,   0));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Verify sizes
   BOOST_REQUIRE_EQUAL(0, order_book.bids().size());
@@ -1167,7 +1132,6 @@ BOOST_AUTO_TEST_CASE(TestCancelAskAndMatch)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 2, 200));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
 
   // Cancel bid
   BOOST_REQUIRE(cancel_and_verify(order_book, &ask0, impl::os_cancelled));
@@ -1176,7 +1140,6 @@ BOOST_AUTO_TEST_CASE(TestCancelAskAndMatch)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 2, 200));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
 
   // Match - partiaL
   { BOOST_REQUIRE_NO_THROW(
@@ -1221,9 +1184,7 @@ BOOST_AUTO_TEST_CASE(TestCancelBidFail)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -1239,7 +1200,6 @@ BOOST_AUTO_TEST_CASE(TestCancelBidFail)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Cancel a filled order
@@ -1248,7 +1208,6 @@ BOOST_AUTO_TEST_CASE(TestCancelBidFail)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 }
 
@@ -1272,10 +1231,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskFail)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
@@ -1291,9 +1247,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskFail)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 
   // Cancel a filled order
   BOOST_REQUIRE(cancel_and_verify(order_book, &ask0, impl::os_complete));
@@ -1301,9 +1255,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskFail)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
 }
 
 BOOST_AUTO_TEST_CASE(TestCancelBidRestore)
@@ -1368,15 +1320,7 @@ BOOST_AUTO_TEST_CASE(TestCancelBidRestore)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
 
   // Cancel a bid level (erase)
   BOOST_REQUIRE(cancel_and_verify(order_book, &bid3, impl::os_cancelled));
@@ -1384,15 +1328,7 @@ BOOST_AUTO_TEST_CASE(TestCancelBidRestore)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300)); // Restored
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
   
   // Cancel common bid levels (not erased)
   BOOST_REQUIRE(cancel_and_verify(order_book, &bid7, impl::os_cancelled));
@@ -1401,15 +1337,7 @@ BOOST_AUTO_TEST_CASE(TestCancelBidRestore)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1246, 1,  500)); // Cxl 600
-  BOOST_REQUIRE(dc.verify_bid(1245, 2,  400)); // Cxl 100
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
 
   // Cancel the best bid level (erased)
   BOOST_REQUIRE(cancel_and_verify(order_book, &bid1, impl::os_cancelled));
@@ -1419,15 +1347,7 @@ BOOST_AUTO_TEST_CASE(TestCancelBidRestore)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1246, 1,  500));
-  BOOST_REQUIRE(dc.verify_bid(1245, 2,  400));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1241, 1,  400));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
 }
 
 BOOST_AUTO_TEST_CASE(TestCancelAskRestore)
@@ -1492,15 +1412,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskRestore)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
 
   // Cancel an ask level (erase)
   BOOST_REQUIRE(cancel_and_verify(order_book, &ask1, impl::os_cancelled));
@@ -1508,15 +1420,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskRestore)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200)); // Restored
 
   // Cancel common ask levels (not erased)
   BOOST_REQUIRE(cancel_and_verify(order_book, &ask2, impl::os_cancelled));
@@ -1525,15 +1429,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskRestore)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1,  200)); // Cxl 100
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 1,  200)); // Cxl 500
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200));
 
   // Cancel the best ask level (erased)
   BOOST_REQUIRE(cancel_and_verify(order_book, &ask0, impl::os_cancelled));
@@ -1541,15 +1437,7 @@ BOOST_AUTO_TEST_CASE(TestCancelAskRestore)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1252, 1,  200));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 1,  200));
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200));
-  BOOST_REQUIRE(dc.verify_ask(1257, 1,  700)); // Restored
 }
 
 BOOST_AUTO_TEST_CASE(TestFillCompleteBidRestoreDepth)
@@ -1614,15 +1502,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteBidRestoreDepth)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
 
   // Fill the top bid level (erase) and add an ask level (insert)
   SimpleOrder cross_ask(false,  1249, 800);
@@ -1637,15 +1517,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteBidRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300)); // Restored
   BOOST_REQUIRE(dc.verify_ask(1249, 1,  300)); // Inserted
-  BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
   
   // Fill the top bid level (erase) but do not add an ask level (no insert)
   SimpleOrder cross_ask2(false,  1248, 400);
@@ -1658,15 +1530,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteBidRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1241, 1,  400)); // Restored
   BOOST_REQUIRE(dc.verify_ask(1249, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
 
   // Fill the top bid level (erase) and add ask level (insert),
   //    but nothing to restore
@@ -1681,15 +1545,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteBidRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1241, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,    0)); // Nothing to restore
   BOOST_REQUIRE(dc.verify_ask(1246, 1, 1300));
-  BOOST_REQUIRE(dc.verify_ask(1249, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
 
   // Partial fill the top bid level (reduce) 
   SimpleOrder cross_ask4(false,  1245, 250);
@@ -1703,15 +1559,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteBidRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1245, 2,  250)); // 1 filled, 1 reduced
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1241, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,    0));
   BOOST_REQUIRE(dc.verify_ask(1246, 1, 1300));
-  BOOST_REQUIRE(dc.verify_ask(1249, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
 }
 
 BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
@@ -1776,15 +1624,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1244, 2, 1000));
   BOOST_REQUIRE(dc.verify_ask(1250, 1,  500));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
 
   // Fill the top ask level (erase) and add a bid level (insert)
   SimpleOrder cross_bid(true,  1250, 800);
@@ -1797,15 +1637,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
   BOOST_REQUIRE(dc.verify_ask(1251, 1,  400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200)); // Restored
 
   // Fill the top ask level (erase) but do not add an bid level (no insert)
   SimpleOrder cross_bid2(true,  1251, 400);
@@ -1818,15 +1650,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 3,  500));
   BOOST_REQUIRE(dc.verify_ask(1252, 2,  300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200));
-  BOOST_REQUIRE(dc.verify_ask(1257, 1,  700)); // Restored
 
   // Fill the top ask level (erase) and add bid level (insert),
   //    but nothing to restore
@@ -1841,15 +1665,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1252, 1, 2100)); // Insert
-  BOOST_REQUIRE(dc.verify_bid(1250, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
   BOOST_REQUIRE(dc.verify_ask(1254, 1,  300));
-  BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200));
-  BOOST_REQUIRE(dc.verify_ask(1257, 1,  700));
-  BOOST_REQUIRE(dc.verify_ask(1258, 1,  600)); // Restored
 
   // Fill the top ask level (erase) but nothing to restore
   SimpleOrder cross_bid4(true,  1254, 300);
@@ -1862,15 +1678,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1252, 1, 2100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
   BOOST_REQUIRE(dc.verify_ask(1255, 2,  700));
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200));
-  BOOST_REQUIRE(dc.verify_ask(1257, 1,  700));
-  BOOST_REQUIRE(dc.verify_ask(1258, 1,  600));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,    0)); // Nothing to restore
 
   // Partial fill the top ask level (reduce) 
   SimpleOrder cross_bid5(true,  1255, 550);
@@ -1884,15 +1692,7 @@ BOOST_AUTO_TEST_CASE(TestFillCompleteAskRestoreDepth)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1252, 1, 2100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1,  300));
-  BOOST_REQUIRE(dc.verify_bid(1249, 3,  500));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1,  400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 2, 1100));
   BOOST_REQUIRE(dc.verify_ask(1255, 1,  150)); // 1 filled, 1 reduced
-  BOOST_REQUIRE(dc.verify_ask(1256, 2,  200));
-  BOOST_REQUIRE(dc.verify_ask(1257, 1,  700));
-  BOOST_REQUIRE(dc.verify_ask(1258, 1,  600));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,    0));
 }
 
 typedef boost::shared_ptr<SimpleOrder> SimpleOrderPtr;
@@ -2052,23 +1852,17 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncrease)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 300));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
-  cc.reset();
+  BOOST_REQUIRE(cc.verify_bbo_changed(1, 1));
 
   // Replace size
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, 25));
   BOOST_REQUIRE(replace_and_verify(order_book, &ask0, 50));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(0, 1, 0, 0, 0));
-  cc.reset();
+  BOOST_REQUIRE(cc.verify_bbo_changed(1, 0));
 
   // Verify orders
   BOOST_REQUIRE_EQUAL(125, bid0.order_qty());
@@ -2077,9 +1871,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncrease)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 125));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 350));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
@@ -2100,13 +1892,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
-  cc.reset();
+  BOOST_REQUIRE(cc.verify_bbo_changed(1, 1));
 
   // Replace size
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, -60));
@@ -2119,13 +1908,10 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecrease)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1,  40));
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 350));
 
   // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(0, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
-  cc.reset();
+  BOOST_REQUIRE(cc.verify_bbo_changed(0, 1));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
@@ -2147,41 +1933,23 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
 
   // Verify depth
   DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 400));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
-  cc.reset();
+  BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
 
   // Partial Fill existing book
   SimpleOrder cross_bid(true,  1252, 125);
   SimpleOrder cross_ask(false, 1251, 100);
   
-  // Bid matching best ask
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&cross_bid, 125, 1252 * 125);
     SimpleFillCheck fc2(&ask0,      125, 1252 * 125);
     BOOST_REQUIRE(add_and_verify(order_book, &cross_bid, true, true));
   ); }
-
-  // TODO: don't insert when when inbound will be filled
-  BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
-  cc.reset();
-
-  // Ask matching best bid
   { BOOST_REQUIRE_NO_THROW(
     SimpleFillCheck fc1(&cross_ask, 100, 1251 * 100);
     SimpleFillCheck fc2(&bid1,      100, 1251 * 100);
     BOOST_REQUIRE(add_and_verify(order_book, &cross_ask, true, true));
   ); }
-
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 0, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
 
   // Verify quantity
   BOOST_REQUIRE_EQUAL(175, ask0.open_qty());
@@ -2190,8 +1958,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 300));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 375));
 
   // Replace size - cancel
@@ -2205,8 +1971,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 300));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 
   // Replace size - reduce level
@@ -2220,8 +1984,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 
   // Replace size - cancel and erase level
@@ -2235,7 +1997,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseCancel)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 700));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 }
 
@@ -2256,7 +2017,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseTooMuch)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 500));
 
   SimpleOrder cross_bid(true,  1252, 200);
@@ -2273,7 +2033,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseTooMuch)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 300));
 
   // Replace size - not enough left
@@ -2291,7 +2050,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeDecreaseTooMuch)
   // Verify depth unchanged
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1252, 2, 300));
 }
 
@@ -2312,7 +2070,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncreaseDecrease)
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 
   // Replace size
   BOOST_REQUIRE(replace_and_verify(order_book, &ask0, 50));
@@ -2328,13 +2085,11 @@ BOOST_AUTO_TEST_CASE(TestReplaceSizeIncreaseDecrease)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1250, 1, 75));
   BOOST_REQUIRE(dc.verify_ask(1251, 1, 550));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
 {
   SimpleOrderBook order_book;
-  ChangedChecker cc(order_book.depth());
   SimpleOrder ask0(false, 1253, 300);
   SimpleOrder ask1(false, 1252, 200);
   SimpleOrder bid1(true,  1251, 140);
@@ -2349,16 +2104,9 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
-  cc.reset();
-
-  // Replace price increase 1250 -> 1251
+  // Replace price increase
   BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1251));
 
   // Verify price change in book
@@ -2377,14 +2125,8 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 2, 260));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
-  cc.reset();
-
-  // Replace price decrease 1251 -> 1250
+  // Replace price decrease
   BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1250));
 
   // Verify price change in book
@@ -2402,14 +2144,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChange)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 120));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
@@ -2428,25 +2163,13 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
   BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
 
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
-  cc.reset();
-
   // Verify depth
   DepthCheck dc(order_book.depth());
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
 
   // Replace price increase 1252 -> 1253
   BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1253));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
-  cc.reset();
 
   // Verify price change in book
   SimpleOrderBook::Asks::const_iterator ask = order_book.asks().begin();
@@ -2463,7 +2186,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
   BOOST_REQUIRE(dc.verify_ask(1253, 2, 500));
 
   // Replace price decrease 1253 -> 1252
@@ -2484,476 +2206,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   // Verify depth
   dc.reset();
   BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
   BOOST_REQUIRE(dc.verify_ask(1252, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(   0, 0,   0));
 }
-
-BOOST_AUTO_TEST_CASE(TestReplaceBidPriceChangeErase)
-{
-  SimpleOrderBook order_book;
-  SimpleOrder ask0(false, 1253, 300);
-  SimpleOrder ask1(false, 1252, 200);
-  SimpleOrder bid1(true,  1251, 140);
-  SimpleOrder bid0(true,  1250, 120);
-  SimpleOrder bid2(true,  1249, 100);
-  SimpleOrder bid3(true,  1248, 200);
-  SimpleOrder bid4(true,  1247, 400);
-  SimpleOrder bid5(true,  1246, 800);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid2, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid3, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid4, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid5, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
-
-  // Verify depth
-  DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1247, 1, 400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-
-  // Replace price increase 1250 -> 1251
-  BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1251));
-
-  // Verify price change in book
-  SimpleOrderBook::Bids::const_iterator bid = order_book.bids().begin();
-  BOOST_REQUIRE_EQUAL(1251, bid->first);
-  BOOST_REQUIRE_EQUAL(&bid1, bid->second.ptr());
-  BOOST_REQUIRE_EQUAL(1251, (++bid)->first);
-  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
-  BOOST_REQUIRE_EQUAL(1249, (++bid)->first);
-  BOOST_REQUIRE_EQUAL(&bid2, bid->second.ptr());
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1251, bid0.price());
-  BOOST_REQUIRE_EQUAL(120, bid0.order_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1251, 2, 260));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1247, 1, 400));
-  BOOST_REQUIRE(dc.verify_bid(1246, 1, 800));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-
-  // Replace price decrease 1251 -> 1250
-  BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1250));
-
-  // Verify price change in book
-  bid = order_book.bids().begin();
-  BOOST_REQUIRE_EQUAL(1251, bid->first);
-  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
-  BOOST_REQUIRE_EQUAL(1250, (++bid)->first);
-  BOOST_REQUIRE_EQUAL(&bid1, bid->second.ptr());
-  BOOST_REQUIRE_EQUAL(1249, (++bid)->first);
-  BOOST_REQUIRE_EQUAL(&bid2, bid->second.ptr());
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1250, bid1.price());
-  BOOST_REQUIRE_EQUAL(140, bid1.order_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 120));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1249, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1247, 1, 400));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-}
-
-BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChangeErase)
-{
-  SimpleOrderBook order_book;
-  SimpleOrder ask5(false, 1258, 304);
-  SimpleOrder ask4(false, 1256, 330);
-  SimpleOrder ask3(false, 1255, 302);
-  SimpleOrder ask2(false, 1254, 310);
-  SimpleOrder ask0(false, 1253, 300);
-  SimpleOrder ask1(false, 1252, 200);
-  SimpleOrder bid1(true,  1251, 140);
-  SimpleOrder bid0(true,  1250, 120);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask2, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask3, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask4, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask5, false));
-
-  // Verify depth
-  DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 310));
-  BOOST_REQUIRE(dc.verify_ask(1255, 1, 302));
-  BOOST_REQUIRE(dc.verify_ask(1256, 1, 330));
-
-  // Replace price increase 1252 -> 1253
-  BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1253));
-
-  // Verify price change in book
-  SimpleOrderBook::Asks::const_iterator ask = order_book.asks().begin();
-  BOOST_REQUIRE_EQUAL(1253, ask->first);
-  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
-  BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
-  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
-  BOOST_REQUIRE_EQUAL(1254, (++ask)->first);
-  BOOST_REQUIRE_EQUAL(&ask2, ask->second.ptr());
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1253, ask1.price());
-  BOOST_REQUIRE_EQUAL(200, ask1.order_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_ask(1253, 2, 500));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 310));
-  BOOST_REQUIRE(dc.verify_ask(1255, 1, 302));
-  BOOST_REQUIRE(dc.verify_ask(1256, 1, 330));
-  BOOST_REQUIRE(dc.verify_ask(1258, 1, 304));
-
-  // Replace price decrease 1253 -> 1252
-  BOOST_REQUIRE(replace_and_verify(order_book, &ask0, SIZE_UNCHANGED, 1252));
-
-  // Verify price change in book
-  ask = order_book.asks().begin();
-  BOOST_REQUIRE_EQUAL(1252, ask->first);
-  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
-  BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
-  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
-  BOOST_REQUIRE_EQUAL(1254, (++ask)->first);
-  BOOST_REQUIRE_EQUAL(&ask2, ask->second.ptr());
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1252, ask0.price());
-  BOOST_REQUIRE_EQUAL(300, ask0.order_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 310));
-  BOOST_REQUIRE(dc.verify_ask(1255, 1, 302));
-  BOOST_REQUIRE(dc.verify_ask(1256, 1, 330));
-}
-
-// A potential problem
-// When restroing a level into the depth, the orders (and thus the restored
-// level already reflect the post-fill quantity, but the fill callback has 
-// yet to be processed.  As such, a multilevel fill can have fills at the 
-// restoration price double-counted
-// but the 
-BOOST_AUTO_TEST_CASE(TestBidMultiLevelFillRestore)
-{
-  SimpleOrderBook order_book;
-  SimpleOrder ask1(false, 0, 1300);
-  SimpleOrder ask0(false, 1252, 100);
-  SimpleOrder bid0(true,  1251, 200);
-  SimpleOrder bid1(true,  1250, 200);
-  SimpleOrder bid2(true,  1250, 200);
-  SimpleOrder bid3(true,  1248, 200);
-  SimpleOrder bid4(true,  1247, 200);
-  SimpleOrder bid5(true,  1246, 200);
-  SimpleOrder bid6(true,  1245, 200); // Partial match
-  SimpleOrder bid7(true,  1244, 200);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid2, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid3, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid4, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid5, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid6, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid7, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-
-  // Verify sizes
-  BOOST_REQUIRE_EQUAL(8, order_book.bids().size());
-  BOOST_REQUIRE_EQUAL(1, order_book.asks().size());
-
-  // Verify depth
-  DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1250, 2, 400));
-  BOOST_REQUIRE(dc.verify_bid(1248, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1247, 1, 200));
-  BOOST_REQUIRE(dc.verify_bid(1246, 1, 200));
-
-  // Match - complete
-  { BOOST_REQUIRE_NO_THROW(
-    SimpleFillCheck fc0(&bid0,  200,  250200);
-    SimpleFillCheck fc1(&bid1,  200,  250000);
-    SimpleFillCheck fc2(&bid2,  200,  250000);
-    SimpleFillCheck fc3(&bid3,  200,  249600);
-    SimpleFillCheck fc4(&bid4,  200,  249400);
-    SimpleFillCheck fc5(&bid5,  200,  249200);
-    SimpleFillCheck fc6(&bid6,  100,  124500);
-    SimpleFillCheck fc7(&ask1, 1300, 1622900);
-    BOOST_REQUIRE(add_and_verify(order_book, &ask1, true, true));
-  ); }
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1245, 1, 100));
-  BOOST_REQUIRE(dc.verify_bid(1244, 1, 200));
-}
-
-BOOST_AUTO_TEST_CASE(TestAskMultiLevelFillRestore)
-{
-  SimpleOrderBook order_book;
-  SimpleOrder ask0(false,  1251, 200); // Partial match
-  SimpleOrder ask1(false,  1250, 200);
-  SimpleOrder ask2(false,  1250, 300);
-  SimpleOrder ask3(false,  1248, 200);
-  SimpleOrder ask4(false,  1247, 200);
-  SimpleOrder ask5(false,  1245, 200);
-  SimpleOrder ask6(false,  1245, 200);
-  SimpleOrder ask7(false,  1244, 200);
-  SimpleOrder bid1(true, 0, 1550);
-  SimpleOrder bid0(true, 1242, 100);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask2, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask3, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask4, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask5, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask6, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask7, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-
-  // Verify sizes
-  BOOST_REQUIRE_EQUAL(8, order_book.asks().size());
-  BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
-
-  // Verify depth
-  DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_ask(1244, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1245, 2, 400));
-  BOOST_REQUIRE(dc.verify_ask(1247, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1248, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1250, 2, 500));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1, 100));
-
-  // Match - complete
-  { BOOST_REQUIRE_NO_THROW(
-    SimpleFillCheck fc7(&ask7,  200,  248800);
-    SimpleFillCheck fc6(&ask6,  200,  249000);
-    SimpleFillCheck fc5(&ask5,  200,  249000);
-    SimpleFillCheck fc4(&ask4,  200,  249400);
-    SimpleFillCheck fc3(&ask3,  200,  249600);
-    SimpleFillCheck fc2(&ask2,  300,  375000);
-    SimpleFillCheck fc1(&ask1,  200,  250000);
-    SimpleFillCheck fc0(&ask0,   50,   62550);
-    SimpleFillCheck fc8(&bid1, 1550, 1933350);
-    BOOST_REQUIRE(add_and_verify(order_book, &bid1, true, true));
-  ); }
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_ask(1251, 1, 150));
-  BOOST_REQUIRE(dc.verify_bid(1242, 1, 100));
-}
-
-BOOST_AUTO_TEST_CASE(TestReplaceBidMatch)
-{
-  SimpleOrderBook order_book;
-  ChangedChecker cc(order_book.depth());
-  SimpleOrder ask1(false, 1254, 200);
-  SimpleOrder ask0(false, 1253, 300);
-  SimpleOrder bid1(true,  1251, 140);
-  SimpleOrder bid0(true,  1250, 120);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
-
-  // Verify depth
-  DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
-  cc.reset();
-
-  // Replace price increase new best 1250 -> 1252
-  BOOST_REQUIRE(replace_and_verify(order_book, &bid0, SIZE_UNCHANGED, 1252));
-
-  // Verify price change in book
-  SimpleOrderBook::Bids::const_iterator bid = order_book.bids().begin();
-  BOOST_REQUIRE_EQUAL(1252, bid->first);
-  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
-  BOOST_REQUIRE_EQUAL(1251, (++bid)->first);
-  BOOST_REQUIRE_EQUAL(&bid1, bid->second.ptr());
-  BOOST_REQUIRE(order_book.bids().end() == ++bid);
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1252, bid0.price());
-  BOOST_REQUIRE_EQUAL(120, bid0.order_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1252, 1, 120));
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(0, 0, 0, 0, 0));
-  cc.reset();
-
-  // Match - complete
-  { BOOST_REQUIRE_NO_THROW(
-    SimpleFillCheck fc0(&ask0,  140, 140 * 1253);
-    SimpleFillCheck fc1(&bid1,  140, 140 * 1253);
-    // Replace price increase match 1251 -> 1253
-    BOOST_REQUIRE(replace_and_verify(order_book, &bid1, SIZE_UNCHANGED, 1253,
-                  impl::os_complete, 140));
-  ); }
-
-  // Verify price change in book
-  bid = order_book.bids().begin();
-  BOOST_REQUIRE_EQUAL(1252, bid->first);
-  BOOST_REQUIRE_EQUAL(&bid0, bid->second.ptr());
-  BOOST_REQUIRE(order_book.bids().end() == ++bid);
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1253, bid1.price());
-  BOOST_REQUIRE_EQUAL(140, bid1.order_qty());
-  BOOST_REQUIRE_EQUAL(0, bid1.open_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1252, 1, 120));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 160));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 0, 0, 0, 0));
-}
-
-BOOST_AUTO_TEST_CASE(TestReplaceAskMatch)
-{
-  SimpleOrderBook order_book;
-  ChangedChecker cc(order_book.depth());
-  SimpleOrder ask1(false, 1254, 200);
-  SimpleOrder ask0(false, 1253, 300);
-  SimpleOrder bid1(true,  1251, 140);
-  SimpleOrder bid0(true,  1250, 120);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
-
-  // Verify depth
-  DepthCheck dc(order_book.depth());
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-  BOOST_REQUIRE(dc.verify_ask(1254, 1, 200));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 0, 0, 0));
-  cc.reset();
-
-  // Replace price decrease new best 1254 -> 1252
-  BOOST_REQUIRE(replace_and_verify(order_book, &ask1, SIZE_UNCHANGED, 1252));
-
-  // Verify price change in book
-  SimpleOrderBook::Bids::const_iterator ask = order_book.asks().begin();
-  BOOST_REQUIRE_EQUAL(1252, ask->first);
-  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
-  BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
-  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
-  BOOST_REQUIRE(order_book.asks().end() == ++ask);
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1252, ask1.price());
-  BOOST_REQUIRE_EQUAL(200, ask1.order_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1251, 1, 140));
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-  BOOST_REQUIRE(dc.verify_ask(1253, 1, 300));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(0, 0, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 1, 0, 0));
-  cc.reset();
-
-  // Match - complete
-  { BOOST_REQUIRE_NO_THROW(
-    SimpleFillCheck fc0(&ask0,  140, 140 * 1251);
-    SimpleFillCheck fc1(&bid1,  140, 140 * 1251);
-    // Replace price decrease match 1253 -> 1251
-    BOOST_REQUIRE(replace_and_verify(order_book, &ask0, SIZE_UNCHANGED, 1251,
-                  impl::os_accepted, 140));
-  ); }
-
-  // Verify price change in book
-  ask = order_book.asks().begin();
-  BOOST_REQUIRE_EQUAL(1251, ask->first);
-  BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
-  BOOST_REQUIRE_EQUAL(1252, (++ask)->first);
-  BOOST_REQUIRE_EQUAL(&ask1, ask->second.ptr());
-  BOOST_REQUIRE(order_book.asks().end() == ++ask);
-
-  // Verify order
-  BOOST_REQUIRE_EQUAL(1251, ask0.price());
-  BOOST_REQUIRE_EQUAL(300, ask0.order_qty());
-  BOOST_REQUIRE_EQUAL(160, ask0.open_qty());
-
-  // Verify depth
-  dc.reset();
-  BOOST_REQUIRE(dc.verify_bid(1250, 1, 120));
-  BOOST_REQUIRE(dc.verify_bid(   0, 0,   0));
-  BOOST_REQUIRE(dc.verify_ask(1251, 1, 160));
-  BOOST_REQUIRE(dc.verify_ask(1252, 1, 200));
-
-  // Verify changed stamps
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 0, 0, 0));
-  BOOST_REQUIRE(cc.verify_ask_changed(1, 1, 1, 0, 0));
-}
-
 } // namespace

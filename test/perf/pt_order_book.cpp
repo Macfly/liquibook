@@ -5,8 +5,42 @@
 #include <stdlib.h>
 
 using namespace liquibook;
-typedef impl::SimpleOrderBook SimpleOrderBook;
+typedef impl::SimpleOrderBook<5> DepthOrderBook;
+typedef impl::SimpleOrderBook<1> BboOrderBook;
 typedef book::OrderBook<impl::SimpleOrder*> NoDepthOrderBook;
+
+template <class TypedOrderBook>
+void check_top_of_book(TypedOrderBook& order_book)
+{
+  // Determine if there is top of book bid error
+  const book::DepthLevel& depth_best_bid = *order_book.depth().bids();
+  book::DepthLevel book_best_bid;
+  order_book.populate_bid_depth_level_after(MARKET_ORDER_BID_SORT_PRICE, 
+                                            book_best_bid);
+  if (book_best_bid.price() != depth_best_bid.price()) {
+    throw std::runtime_error("bid price mismatch");
+  }
+  if (book_best_bid.order_count() != depth_best_bid.order_count()) {
+    throw std::runtime_error("bid order_count mismatch");
+  }
+  if (book_best_bid.aggregate_qty() != depth_best_bid.aggregate_qty()) {
+    throw std::runtime_error("bid aggregate_qty mismatch");
+  }
+  // Determine if there is top of book ask error
+  const book::DepthLevel& depth_best_ask = *order_book.depth().asks();
+  book::DepthLevel book_best_ask;
+  order_book.populate_ask_depth_level_after(MARKET_ORDER_ASK_SORT_PRICE, 
+                                            book_best_ask);
+  if (book_best_ask.price() != depth_best_ask.price()) {
+    throw std::runtime_error("ask price mismatch");
+  }
+  if (book_best_ask.order_count() != depth_best_ask.order_count()) {
+    throw std::runtime_error("ask order_count mismatch");
+  }
+  if (book_best_ask.aggregate_qty() != depth_best_ask.aggregate_qty()) {
+    throw std::runtime_error("ask aggregate_qty mismatch");
+  }
+}
 
 template <class TypedOrderBook, class TypedOrder>
 int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
@@ -15,6 +49,9 @@ int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
   do {
     order_book.add(*pp_order);
     order_book.perform_callbacks();
+// check_top_of_book(order_book);
+//std::cout << "Order Book" << std::endl;
+//order_book.log();
     ++pp_order;
     if (*pp_order == NULL) {
       return -1;
@@ -25,14 +62,38 @@ int run_test(TypedOrderBook& order_book, TypedOrder** orders, clock_t end) {
 }
 
 template <class TypedOrderBook>
-bool build_and_run_test(int dur_sec, int num_to_try) {
+bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
   std::cout << "trying run of " << num_to_try << " orders";
   TypedOrderBook order_book;
   impl::SimpleOrder** orders = new impl::SimpleOrder*[num_to_try + 1];
   
-  for (int i = 0; i <= num_to_try; ++i) {
+  for (uint32_t i = 0; i <= num_to_try; ++i) {
     bool is_buy((i % 2) == 0);
-    liquibook::Price price = (rand() % 12) + 1896;
+    uint delta = is_buy ? 1880 : 1884;
+    // ASK 1893
+    // ASK 1892
+    // ASK 1891
+    // ASK 1890
+    // ASK 1889 crossable
+    // ASK 1888 crossable
+    // ASK 1887 crossable
+    // ASK 1886 crossable
+    // ASK 1885 crossable
+    // ASK 1884 crossable
+
+    // BID 1889 crossable
+    // BID 1888 crossable
+    // BID 1887 crossable
+    // BID 1886 crossable
+    // BID 1885 crossable
+    // BID 1884 crossable
+    // BID 1883
+    // BID 1882
+    // BID 1881
+    // BID 1880
+
+    liquibook::Price price = (rand() % 10) + delta;
+    
     liquibook::Quantity qty = ((rand() % 10) + 1) * 100;
     orders[i] = new impl::SimpleOrder(is_buy, price, qty);
   }
@@ -61,7 +122,7 @@ bool build_and_run_test(int dur_sec, int num_to_try) {
 
 int main(int argc, const char* argv[])
 {
-  int dur_sec = 3;
+  uint32_t dur_sec = 3;
   if (argc > 1) {
     dur_sec = atoi(argv[1]);
     if (!dur_sec) { 
@@ -73,8 +134,32 @@ int main(int argc, const char* argv[])
   srand(dur_sec);
 
   {
+    std::cout << "testing order book with depth" << std::endl;
+    uint32_t num_to_try = dur_sec * 125000;
+    while (true) {
+      if (build_and_run_test<DepthOrderBook>(dur_sec, num_to_try)) {
+        break;
+      } else {
+        num_to_try *= 2;
+      }
+    }
+  }
+
+  {
+    std::cout << "testing order book with bbo" << std::endl;
+    uint32_t num_to_try = dur_sec * 125000;
+    while (true) {
+      if (build_and_run_test<BboOrderBook>(dur_sec, num_to_try)) {
+        break;
+      } else {
+        num_to_try *= 2;
+      }
+    }
+  }
+
+  {
     std::cout << "testing order book without depth" << std::endl;
-    int num_to_try = dur_sec * 125000;
+    uint32_t num_to_try = dur_sec * 125000;
     while (true) {
       if (build_and_run_test<NoDepthOrderBook>(dur_sec, num_to_try)) {
         break;
@@ -83,16 +168,6 @@ int main(int argc, const char* argv[])
       }
     }
   }
-  {
-    std::cout << "testing order book with depth" << std::endl;
-    int num_to_try = dur_sec * 125000;
-    while (true) {
-      if (build_and_run_test<SimpleOrderBook>(dur_sec, num_to_try)) {
-        break;
-      } else {
-        num_to_try *= 2;
-      }
-    }
-  }
+
 }
 

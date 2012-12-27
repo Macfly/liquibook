@@ -5,6 +5,13 @@ project (ut_order_book) : liquibook_unit, liquibook_book, liquibook_impl {
   }
 }
 
+project (ut_bbo_order_book) : liquibook_unit, liquibook_book, liquibook_impl {
+  exename = *
+  Source_Files {
+    ut_bbo_order_book.cpp
+  }
+}
+
 project (ut_depth) : liquibook_unit, liquibook_book, liquibook_impl {
   exename = *
   Source_Files {

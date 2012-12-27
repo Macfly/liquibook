@@ -20,8 +20,10 @@ public:
   uint32_t order_count() const;
   /// @brief get aggregate quantity
   Quantity aggregate_qty() const;
+  /// @brief is this level part of the excess
+  bool is_excess() const { return is_excess_; }
 
-  void init(Price price);
+  void init(Price price, bool is_excess);
 
   /// @brief add an order to the level
   /// @param qty open quantity of the order
@@ -48,6 +50,7 @@ private:
   Price price_;
   uint32_t order_count_;
   Quantity aggregate_qty_;
+  bool is_excess_;
 public:
   ChangeId last_change_;
 };
