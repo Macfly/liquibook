@@ -107,8 +107,9 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
       Price current_price = cb.order_->price();
       Quantity current_qty = cb.order_->open_qty();
 
-      // Modify the order itself.  Do this first so restoration is accurate
+      // Modify the order itself
       cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+
       // Notify the depth
       depth_.replace_order(current_price, cb.ref_price_, 
                            current_qty, cb.order_->open_qty(),
