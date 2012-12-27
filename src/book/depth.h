@@ -102,18 +102,6 @@ private:
   /// @return the level, or NULL if not found and full
   DepthLevel* find_level(Price price, bool is_bid, bool should_create = true);
 
-  /// @brief find the level associated with the bid price
-  /// @param price the price to find
-  /// @param should_create should a level for the price be created, if necessary
-  /// @return the level, or NULL if not found and full
-  DepthLevel* find_bid(Price price, bool should_create = true);
-
-  /// @brief find the level associated with the ask price
-  /// @param price the price to find
-  /// @param should_create should a level for the price be created, if necessary
-  /// @return the level, or NULL if not found and full
-  DepthLevel* find_ask(Price price, bool should_create = true);
-
   /// @brief insert a new level before this level and shift down
   /// @param level the level to insert before
   /// @param is_bid indicator of bid or ask
@@ -377,62 +365,6 @@ Depth<SIZE>::find_level(Price price, bool is_bid, bool should_create)
 }
 
 template <int SIZE> 
-DepthLevel*
-Depth<SIZE>::find_bid(Price price, bool should_create)
-{
-  DepthLevel* past_end = asks();
-  DepthLevel* bid;
-  // Linear search each bid
-  for (bid = bids(); bid != past_end; ++bid) {
-    // If the level price is correct
-    if (bid->price() == price) {
-      break;
-    // Else if the level is blank
-    } else if (should_create && bid->price() == INVALID_LEVEL_PRICE) {
-      bid->init(price, false);  // Change ID will be assigned by caller
-      break;  // Blank slot
-    // Else if the level price is too low
-    } else if (should_create && bid->price() < price) {
-      // Insert a slot
-      insert_level_before(bid, true, price);
-      break;
-    }
-  }
-  if (bid == past_end) {
-    return NULL;
-  }
-  return bid;
-}
-
-template <int SIZE> 
-DepthLevel*
-Depth<SIZE>::find_ask(Price price, bool should_create)
-{
-  const DepthLevel* past_end = end();
-  DepthLevel* ask;
-  // Linear search each ask
-  for (ask = asks(); ask != past_end; ++ask) {
-    // If the level price is correct
-    if (ask->price() == price) {
-      break;
-    // Else if the level is blank
-    } else if (should_create && ask->price() == INVALID_LEVEL_PRICE) {
-      ask->init(price, false);  // Change ID will be assigned by caller
-      break;  // Blank slot
-    // Else if the level price is too high
-    } else if (should_create && ask->price() > price) {
-      // Insert a slot
-      insert_level_before(ask, false, price);
-      break;
-    }
-  }
-  if (ask == past_end) {
-    return NULL;
-  }
-  return ask;
-}
-
-template <int SIZE> 
 void
 Depth<SIZE>::insert_level_before(DepthLevel* level, 
                                  bool is_bid,
@@ -477,12 +409,14 @@ template <int SIZE>
 void
 Depth<SIZE>::erase_level(DepthLevel* level, bool is_bid)
 {
+  // If ther level being erased is from the excess, remove excess from map
   if (level->is_excess()) {
     if (is_bid) {
       excess_bid_levels_.erase(level->price());
     } else {
       excess_ask_levels_.erase(level->price());
     }
+  // Else the level being erased is not excess, copy over from those worse
   } else {
     DepthLevel* last_side_level = is_bid ? last_bid_level() : last_ask_level();
     // Increment once
