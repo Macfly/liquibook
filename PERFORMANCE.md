@@ -8,10 +8,16 @@ Performance Test Results, Inserts Per Second
     <th>Note</th>
   </tr>
   <tr>
+    <td>1,222,000</td>
+    <td>1,279,711</td>
+    <td>1,495,714</td>
+    <td>Use vector for callback container.</td>
+  </tr>
+  <tr>
     <td>1,250,616</td>
     <td>1,264,227</td>
     <td>1,463,738</td>
-    <td>Union in callback.</td>
+    <td>Union in callback.  For clarity of purpose, not for performance.</td>
   </tr>
   <tr>
     <td>1,267,135</td>

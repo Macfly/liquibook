@@ -7,7 +7,7 @@
 #include "order_listener.h"
 #include "depth_level.h"
 #include <map>
-#include <deque>
+#include <vector>
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
@@ -42,7 +42,7 @@ public:
   typedef OrderTracker<OrderPtr > Tracker;
   typedef Callback<OrderPtr > TypedCallback;
   typedef OrderListener<OrderPtr > TypedOrderListener;
-  typedef std::deque<TypedCallback > Callbacks;
+  typedef std::vector<TypedCallback > Callbacks;
   typedef std::multimap<Price, Tracker, std::greater<Price> >  Bids;
   typedef std::multimap<Price, Tracker, std::less<Price> >     Asks;
 
@@ -215,6 +215,7 @@ OrderBook<OrderPtr>::OrderBook()
   order_listener_(NULL),
   trans_id_(0)
 {
+  callbacks_.reserve(16);
 }
 
 template <class OrderPtr>
