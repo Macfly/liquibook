@@ -9,6 +9,9 @@
 
 namespace liquibook { namespace book {
 
+/// @brief container of limit order data aggregated by price.  Designed so that
+///    the depth levels themselves are easily copyable with a single memcpy
+///    when used with a separate callback thread.
 template <int SIZE=5> 
 class Depth {
 public:

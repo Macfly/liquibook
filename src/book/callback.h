@@ -21,7 +21,7 @@ class OrderBook;
 //     - trade
 //     - quote (2)
 //     - depth/bbo ?
-//   Order cancell
+//   Order cancel
 //     - order cancel
 //     - quote
 //     - depth/bbo ?
@@ -34,6 +34,7 @@ class OrderBook;
 //   Order replace reject
 //     - order replace reject
 
+/// @brief notification from OrderBook of an event
 template <class OrderPtr = Order*>
 class Callback {
 public:
@@ -48,32 +49,38 @@ public:
     cb_order_cancel_reject,
     cb_order_replace,
     cb_order_replace_reject,
-    cb_book_update,
     cb_depth_update,
     cb_bbo_update
   };
 
   Callback();
 
+  /// @brief create a new accept callback
   static Callback<OrderPtr> accept(const OrderPtr& order,
                                    const TransId& trans_id);
+  /// @brief create a new reject callback
   static Callback<OrderPtr> reject(const OrderPtr& order,
                                    const char* reason,
                                    const TransId& trans_id);
+  /// @brief create a new fill callback
   static Callback<OrderPtr> fill(const OrderPtr& inbound_order,
                                  const OrderPtr& matched_order,
                                  const Quantity& qty,
                                  const Price& price,
                                  const TransId& trans_id);
+  /// @brief create a new cancel callback
   static Callback<OrderPtr> cancel(const OrderPtr& order,
                                    const TransId& trans_id);
+  /// @brief create a new cancel reject callback
   static Callback<OrderPtr> cancel_reject(const OrderPtr& order,
                                           const char* reason,
                                           const TransId& trans_id);
+  /// @brief create a new replace callback
   static Callback<OrderPtr> replace(const OrderPtr& order,
                                     const Quantity& new_order_qty,
                                     const Price& new_price,
                                     const TransId& trans_id);
+  /// @brief create a new replace reject callback
   static Callback<OrderPtr> replace_reject(const OrderPtr& order,
                                            const char* reason,
                                            const TransId& trans_id);

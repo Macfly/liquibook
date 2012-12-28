@@ -6,6 +6,8 @@
 
 namespace liquibook { namespace book {
 
+/// @brief generic listener of order events.  Used by common version of 
+///   OrderBook::process_callback().
 class LIQUIBOOK_BOOK_Export Order {
 public:
   /// @brief is this a limit order?

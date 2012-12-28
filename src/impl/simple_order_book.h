@@ -9,6 +9,9 @@
 
 namespace liquibook { namespace impl {
 
+/// @brief Implementation of order book child class, for unit and performance 
+///        testing purposes.  Overrides perform_callback() method to track
+///        depth aggregated by price.
 template <int SIZE = 5>
 class SimpleOrderBook : 
       public book::OrderBook<SimpleOrder*> {

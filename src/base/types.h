@@ -5,6 +5,7 @@
 #include "liquibook_base_export.h"
 
 namespace liquibook {
+  // Types used in Liquibook
   typedef uint32_t Price;
   typedef uint32_t Quantity;
   typedef uint32_t Cost;
@@ -12,6 +13,7 @@ namespace liquibook {
   typedef uint32_t ChangeId;
   typedef uint32_t TransId;
 
+  // Constants used in liquibook
   extern const Price LIQUIBOOK_BASE_Export INVALID_LEVEL_PRICE;
   extern const Price LIQUIBOOK_BASE_Export MARKET_ORDER_PRICE;
   extern const Price LIQUIBOOK_BASE_Export MARKET_ORDER_BID_SORT_PRICE;
@@ -20,6 +22,5 @@ namespace liquibook {
 
   extern const int32_t LIQUIBOOK_BASE_Export SIZE_UNCHANGED;
 }
-
 
 #endif

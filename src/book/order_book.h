@@ -19,23 +19,40 @@ class OrderBookListener;
 template<class OrderPtr>
 class OrderListener;
 
+/// @brief Tracker of an order's state, to keep inside the OrderBook.  
+///   Kept separate from the order itself.
 template <class OrderPtr = Order*>
 class OrderTracker {
 public:
+  /// @brief construct
   OrderTracker(const OrderPtr& order);
+
+  /// @brief fill an order
+  /// @param qty the number of shares filled in this fill
   void fill(Quantity qty); 
 
+  /// @brief is there no remaining open quantity in this order?
   bool filled() const;
+
+  /// @brief get the total filled quantity of this order
   Quantity filled_qty() const;
+
+  /// @brief get the open quantity of this order
   Quantity open_qty() const;
 
+  /// @brief get the order pointer
   const OrderPtr& ptr() const;
+
+  /// @brief get the order pointer
   OrderPtr& ptr();
 private:
   OrderPtr order_;
   Quantity filled_qty_;
 };
 
+/// @brief The limit order book of a security.  Template implementation allows
+///        user to supply common or smart pointers, and to provide a different
+///        Order class completely (as long as interface is obeyed).
 template <class OrderPtr = Order*>
 class LIQUIBOOK_BOOK_Export OrderBook {
 public:
@@ -77,6 +94,7 @@ public:
   /// @brief perform an individual callback
   virtual void perform_callback(TypedCallback& cb);
 
+  /// @brief log the orders in the book.
   void log() const;
 
   /// @brief populate a bid depth level after a given price, to rebuild a level
@@ -517,7 +535,6 @@ OrderBook<OrderPtr>::perform_callback(TypedCallback& cb)
         order_listener_->on_replace_reject(cb.order, cb.reject_reason);
         break;
       case TypedCallback::cb_unknown:
-      case TypedCallback::cb_book_update:
       case TypedCallback::cb_depth_update:
       case TypedCallback::cb_bbo_update:
         // Error

@@ -15,6 +15,7 @@ enum OrderState {
   os_rejected
 };
 
+/// @brief impelementation of the Order interface for testing purposes.
 class LIQUIBOOK_IMPL_Export SimpleOrder : public book::Order {
 public:
   SimpleOrder(bool is_buy,
