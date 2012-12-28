@@ -64,7 +64,6 @@ public:
                                  const OrderPtr& matched_order,
                                  const Quantity& qty,
                                  const Price& price,
-                                 const Cost& cost,
                                  const TransId& trans_id);
   static Callback<OrderPtr> cancel(const OrderPtr& order,
                                    const TransId& trans_id);
@@ -79,24 +78,32 @@ public:
                                            const char* reason,
                                            const TransId& trans_id);
 
-  CbType type_;
-  OrderPtr order_;
-  OrderPtr matched_order_;
-  const char* reject_reason_;
-  Quantity ref_qty_;
-  Price ref_price_;
-  Cost ref_cost_;
-  TransId trans_id_;
+  CbType type;
+  OrderPtr order;
+  OrderPtr matched_order; // fill
+  TransId trans_id;
+  union {
+    struct {
+      Quantity match_qty;
+    };
+    struct {
+      Quantity fill_qty;
+      Price fill_price;
+    };
+    struct {
+      Quantity new_order_qty;
+      Price new_price;
+    };
+    const char* reject_reason;
+  };
 };
 
 template <class OrderPtr>
 Callback<OrderPtr>::Callback()
-: type_(cb_unknown),
-  reject_reason_(NULL),
-  ref_qty_(0),
-  ref_price_(0),
-  ref_cost_(0),
-  trans_id_(0)
+: type(cb_unknown),
+  trans_id(0),
+  fill_qty(0),
+  fill_price(0)
 {
 }
 
@@ -106,9 +113,9 @@ Callback<OrderPtr> Callback<OrderPtr>::accept(
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_accept;
-  result.order_ = order;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_accept;
+  result.order = order;
+  result.trans_id = trans_id;
   return result;
 }
 
@@ -119,10 +126,10 @@ Callback<OrderPtr> Callback<OrderPtr>::reject(
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_reject;
-  result.order_ = order;
-  result.reject_reason_ = reason;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_reject;
+  result.order = order;
+  result.reject_reason = reason;
+  result.trans_id = trans_id;
   return result;
 }
 
@@ -132,17 +139,15 @@ Callback<OrderPtr> Callback<OrderPtr>::fill(
   const OrderPtr& matched_order,
   const Quantity& qty,
   const Price& price,
-  const Cost& cost,
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_fill;
-  result.order_ = inbound_order;
-  result.matched_order_ = matched_order;
-  result.ref_qty_ = qty;
-  result.ref_price_ = price;
-  result.ref_cost_ = cost;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_fill;
+  result.order = inbound_order;
+  result.matched_order = matched_order;
+  result.fill_qty = qty;
+  result.fill_price = price;
+  result.trans_id = trans_id;
   return result;
 }
 
@@ -152,9 +157,9 @@ Callback<OrderPtr> Callback<OrderPtr>::cancel(
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_cancel;
-  result.order_ = order;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_cancel;
+  result.order = order;
+  result.trans_id = trans_id;
   return result;
 }
 
@@ -165,10 +170,10 @@ Callback<OrderPtr> Callback<OrderPtr>::cancel_reject(
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_cancel_reject;
-  result.order_ = order;
-  result.reject_reason_ = reason;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_cancel_reject;
+  result.order = order;
+  result.reject_reason = reason;
+  result.trans_id = trans_id;
   return result;
 }
 
@@ -180,11 +185,11 @@ Callback<OrderPtr> Callback<OrderPtr>::replace(
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_replace;
-  result.order_ = order;
-  result.ref_qty_ = new_order_qty;
-  result.ref_price_ = new_price;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_replace;
+  result.order = order;
+  result.new_order_qty = new_order_qty;
+  result.new_price = new_price;
+  result.trans_id = trans_id;
   return result;
 }
 
@@ -195,10 +200,10 @@ Callback<OrderPtr> Callback<OrderPtr>::replace_reject(
   const TransId& trans_id)
 {
   Callback<OrderPtr> result;
-  result.type_ = cb_order_replace_reject;
-  result.order_ = order;
-  result.reject_reason_ = reason;
-  result.trans_id_ = trans_id;
+  result.type = cb_order_replace_reject;
+  result.order = order;
+  result.reject_reason = reason;
+  result.trans_id = trans_id;
   return result;
 }
 

@@ -239,7 +239,7 @@ OrderBook<OrderPtr>::add(const OrderPtr& order)
     matched = add_order(inbound, order_price);
     if (matched) {
       // Note the filled qty in the callback
-      accept_cb.ref_qty_ = inbound.filled_qty();
+      accept_cb.match_qty = inbound.filled_qty();
     }
   }
   callbacks_added();
@@ -470,14 +470,12 @@ OrderBook<OrderPtr>::cross_orders(Tracker& inbound_tracker,
     cross_price = inbound_tracker.ptr()->price();
   }
   
-  Cost fill_cost = fill_qty * cross_price;
   inbound_tracker.fill(fill_qty);
   current_tracker.fill(fill_qty);
   callbacks_.push_back(TypedCallback::fill(inbound_tracker.ptr(),
                                            current_tracker.ptr(),
                                            fill_qty,
                                            cross_price,
-                                           fill_cost,
                                            trans_id_));
   callbacks_added();
 }
@@ -498,28 +496,31 @@ inline void
 OrderBook<OrderPtr>::perform_callback(TypedCallback& cb)
 {
   // If this is an order callback and I know of an order listener
-  if (cb.order_ && order_listener_) {
-    switch (cb.type_) {
-      case TypedCallback::cb_order_fill:
-        order_listener_->on_fill(cb.order_, cb.ref_qty_, cb.ref_cost_);
+  if (cb.order && order_listener_) {
+    switch (cb.type) {
+      case TypedCallback::cb_order_fill: {
+        Cost fill_cost = cb.fill_price * cb.fill_qty;
+        order_listener_->on_fill(cb.order, cb.fill_qty, fill_cost);
+        order_listener_->on_fill(cb.matched_order, cb.fill_qty, fill_cost);
         break;
+      }
       case TypedCallback::cb_order_accept:
-        order_listener_->on_accept(cb.order_);
+        order_listener_->on_accept(cb.order);
         break;
       case TypedCallback::cb_order_reject:
-        order_listener_->on_reject(cb.order_, cb.reject_reason_);
+        order_listener_->on_reject(cb.order, cb.reject_reason);
         break;
       case TypedCallback::cb_order_cancel:
-        order_listener_->on_cancel(cb.order_);
+        order_listener_->on_cancel(cb.order);
         break;
       case TypedCallback::cb_order_cancel_reject:
-        order_listener_->on_cancel_reject(cb.order_, cb.reject_reason_);
+        order_listener_->on_cancel_reject(cb.order, cb.reject_reason);
         break;
       case TypedCallback::cb_order_replace:
-        order_listener_->on_replace(cb.order_, cb.ref_qty_, cb.ref_price_);
+        order_listener_->on_replace(cb.order, cb.new_order_qty, cb.new_price);
         break;
       case TypedCallback::cb_order_replace_reject:
-        order_listener_->on_replace_reject(cb.order_, cb.reject_reason_);
+        order_listener_->on_replace_reject(cb.order, cb.reject_reason);
         break;
       case TypedCallback::cb_unknown:
       case TypedCallback::cb_book_update:

@@ -1700,19 +1700,21 @@ class SharedPtrOrderBook : public OrderBook<SimpleOrderPtr>
 {
   virtual void perform_callback(OrderBook<SimpleOrderPtr>::TypedCallback& cb)
   {
-    switch(cb.type_) {
+    switch(cb.type) {
       case TypedCallback::cb_order_accept:
-        cb.order_->accept();
+        cb.order->accept();
         break;
-      case TypedCallback::cb_order_fill:
-        cb.order_->fill(cb.ref_qty_, cb.ref_cost_, 0);
-        cb.matched_order_->fill(cb.ref_qty_, cb.ref_cost_, 0);
+      case TypedCallback::cb_order_fill: {
+        Cost fill_cost = cb.fill_price * cb.fill_qty;
+        cb.order->fill(cb.fill_qty, fill_cost, 0);
+        cb.matched_order->fill(cb.fill_qty, fill_cost, 0);
         break;
+      }
       case TypedCallback::cb_order_cancel:
-        cb.order_->cancel();
+        cb.order->cancel();
         break;
       case TypedCallback::cb_order_replace:
-        cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+        cb.order->replace(cb.new_order_qty, cb.new_price);
         break;
       default:
         // Nothing

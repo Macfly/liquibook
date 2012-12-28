@@ -38,74 +38,75 @@ template <int SIZE>
 inline void
 SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
 {
-  switch(cb.type_) {
+  switch(cb.type) {
     case SimpleCallback::cb_order_accept:
-      cb.order_->accept();
+      cb.order->accept();
       // If the order is a limit order
-      if (cb.order_->is_limit()) {
+      if (cb.order->is_limit()) {
         // If the order is completely filled on acceptance, do not modify 
         // depth unnecessarily
-        if (cb.ref_qty_ == cb.order_->order_qty()) {
+        if (cb.match_qty == cb.order->order_qty()) {
           // Don't tell depth about this order - it's going away immediately.
           // Instead tell Depth about future fills to ignore
-          depth_.ignore_fill_qty(cb.ref_qty_, cb.order_->is_buy());
+          depth_.ignore_fill_qty(cb.match_qty, cb.order->is_buy());
         } else {
           // Add to bid or ask depth
-          depth_.add_order(cb.order_->price(), 
-                           cb.order_->order_qty(), 
-                           cb.order_->is_buy());
+          depth_.add_order(cb.order->price(), 
+                           cb.order->order_qty(), 
+                           cb.order->is_buy());
         }
       }
       break;
 
-    case SimpleCallback::cb_order_fill:
+    case SimpleCallback::cb_order_fill: {
       // If the matched order is a limit order
-      if (cb.matched_order_->is_limit()) {
+      if (cb.matched_order->is_limit()) {
         // Inform the depth
-        depth_.fill_order(cb.matched_order_->price(), 
-                          cb.matched_order_->open_qty(),
-                          cb.ref_qty_,
-                          cb.matched_order_->is_buy());
+        depth_.fill_order(cb.matched_order->price(), 
+                          cb.matched_order->open_qty(),
+                          cb.fill_qty,
+                          cb.matched_order->is_buy());
       }
       // If the inbound order is a limit order
-      if (cb.order_->is_limit()) {
+      if (cb.order->is_limit()) {
         // Inform the depth
-        depth_.fill_order(cb.order_->price(), 
-                          cb.order_->open_qty(),
-                          cb.ref_qty_,
-                          cb.order_->is_buy());
+        depth_.fill_order(cb.order->price(), 
+                          cb.order->open_qty(),
+                          cb.fill_qty,
+                          cb.order->is_buy());
       }
       // Increment fill ID once
       ++fill_id_;
       // Update the orders
-      cb.matched_order_->fill(cb.ref_qty_, cb.ref_cost_, fill_id_);
-      cb.order_->fill(cb.ref_qty_, cb.ref_cost_, fill_id_);
+      Cost fill_cost = cb.fill_qty * cb.fill_price;
+      cb.matched_order->fill(cb.fill_qty, fill_cost, fill_id_);
+      cb.order->fill(cb.fill_qty, fill_cost, fill_id_);
       break;
-
+    }
     case SimpleCallback::cb_order_cancel:
-      cb.order_->cancel();
       // If the order is a limit order
-      if (cb.order_->is_limit()) {
+      if (cb.order->is_limit()) {
         // If the close erases a level
-        depth_.close_order(cb.order_->price(), 
-                           cb.order_->open_qty(), 
-                           cb.order_->is_buy());
+        depth_.close_order(cb.order->price(), 
+                           cb.order->open_qty(), 
+                           cb.order->is_buy());
       }
+      cb.order->cancel();
       break;
 
     case SimpleCallback::cb_order_replace:
     {
       // Remember current values
-      Price current_price = cb.order_->price();
-      Quantity current_qty = cb.order_->open_qty();
+      Price current_price = cb.order->price();
+      Quantity current_qty = cb.order->open_qty();
 
       // Modify the order itself
-      cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+      cb.order->replace(cb.new_order_qty, cb.new_price);
 
       // Notify the depth
-      depth_.replace_order(current_price, cb.ref_price_, 
-                           current_qty, cb.order_->open_qty(),
-                           cb.order_->is_buy());
+      depth_.replace_order(current_price, cb.new_price, 
+                           current_qty, cb.order->open_qty(),
+                           cb.order->is_buy());
       break;
     }
     default:
