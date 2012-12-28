@@ -473,12 +473,8 @@ OrderBook<OrderPtr>::cross_orders(Tracker& inbound_tracker,
   Cost fill_cost = fill_qty * cross_price;
   inbound_tracker.fill(fill_qty);
   current_tracker.fill(fill_qty);
-  callbacks_.push_back(TypedCallback::fill(current_tracker.ptr(),
-                                           fill_qty,
-                                           cross_price,
-                                           fill_cost,
-                                           trans_id_));
   callbacks_.push_back(TypedCallback::fill(inbound_tracker.ptr(),
+                                           current_tracker.ptr(),
                                            fill_qty,
                                            cross_price,
                                            fill_cost,

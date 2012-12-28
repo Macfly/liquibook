@@ -1906,6 +1906,7 @@ class SharedPtrOrderBook : public OrderBook<SimpleOrderPtr>
         break;
       case TypedCallback::cb_order_fill:
         cb.order_->fill(cb.ref_qty_, cb.ref_cost_, 0);
+        cb.matched_order_->fill(cb.ref_qty_, cb.ref_cost_, 0);
         break;
       case TypedCallback::cb_order_cancel:
         cb.order_->cancel();

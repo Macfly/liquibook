@@ -60,7 +60,8 @@ public:
   static Callback<OrderPtr> reject(const OrderPtr& order,
                                    const char* reason,
                                    const TransId& trans_id);
-  static Callback<OrderPtr> fill(const OrderPtr& order,
+  static Callback<OrderPtr> fill(const OrderPtr& inbound_order,
+                                 const OrderPtr& matched_order,
                                  const Quantity& qty,
                                  const Price& price,
                                  const Cost& cost,
@@ -80,6 +81,7 @@ public:
 
   CbType type_;
   OrderPtr order_;
+  OrderPtr matched_order_;
   const char* reject_reason_;
   Quantity ref_qty_;
   Price ref_price_;
@@ -126,7 +128,8 @@ Callback<OrderPtr> Callback<OrderPtr>::reject(
 
 template <class OrderPtr>
 Callback<OrderPtr> Callback<OrderPtr>::fill(
-  const OrderPtr& order,
+  const OrderPtr& inbound_order,
+  const OrderPtr& matched_order,
   const Quantity& qty,
   const Price& price,
   const Cost& cost,
@@ -134,7 +137,8 @@ Callback<OrderPtr> Callback<OrderPtr>::fill(
 {
   Callback<OrderPtr> result;
   result.type_ = cb_order_fill;
-  result.order_ = order;
+  result.order_ = inbound_order;
+  result.matched_order_ = matched_order;
   result.ref_qty_ = qty;
   result.ref_price_ = price;
   result.ref_cost_ = cost;

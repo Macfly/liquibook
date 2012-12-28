@@ -59,7 +59,15 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
       break;
 
     case SimpleCallback::cb_order_fill:
-      // If the order is a limit order
+      // If the matched order is a limit order
+      if (cb.matched_order_->is_limit()) {
+        // Inform the depth
+        depth_.fill_order(cb.matched_order_->price(), 
+                          cb.matched_order_->open_qty(),
+                          cb.ref_qty_,
+                          cb.matched_order_->is_buy());
+      }
+      // If the inbound order is a limit order
       if (cb.order_->is_limit()) {
         // Inform the depth
         depth_.fill_order(cb.order_->price(), 
@@ -67,9 +75,11 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
                           cb.ref_qty_,
                           cb.order_->is_buy());
       }
-      // Update the order
-      cb.order_->fill(cb.ref_qty_, cb.ref_cost_, ++fill_id_);
-      // If depth has already been adjusted for this level and transaction
+      // Increment fill ID once
+      ++fill_id_;
+      // Update the orders
+      cb.matched_order_->fill(cb.ref_qty_, cb.ref_cost_, fill_id_);
+      cb.order_->fill(cb.ref_qty_, cb.ref_cost_, fill_id_);
       break;
 
     case SimpleCallback::cb_order_cancel:
