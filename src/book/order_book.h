@@ -133,9 +133,6 @@ protected:
                                 int32_t size_delta,
                                 Price new_price);
 
-  /// @brief norify child classes one or more callbacks have been added
-  virtual void callbacks_added();
-
   /// @brief find a bid
   void find_bid(const OrderPtr& order, typename Bids::iterator& result);
 
@@ -243,7 +240,6 @@ OrderBook<OrderPtr>::add(const OrderPtr& order)
       accept_cb.match_qty = inbound.filled_qty();
     }
   }
-  callbacks_added();
   return matched;
 }
 
@@ -281,7 +277,6 @@ OrderBook<OrderPtr>::cancel(const OrderPtr& order)
     callbacks_.push_back(
         TypedCallback::cancel_reject(order, "not found", trans_id_));
   }
-  callbacks_added();
 }
 
 template <class OrderPtr>
@@ -377,7 +372,6 @@ OrderBook<OrderPtr>::replace(
     }
   }
 
-  callbacks_added();
   return matched;
 }
 
@@ -478,7 +472,6 @@ OrderBook<OrderPtr>::cross_orders(Tracker& inbound_tracker,
                                            fill_qty,
                                            cross_price,
                                            trans_id_));
-  callbacks_added();
 }
 
 template <class OrderPtr>
@@ -616,12 +609,6 @@ OrderBook<OrderPtr>::is_valid_replace(
   Price /*new_price*/)
 {
   return true;
-}
-
-template <class OrderPtr>
-inline void
-OrderBook<OrderPtr>::callbacks_added()
-{
 }
 
 template <class OrderPtr>
