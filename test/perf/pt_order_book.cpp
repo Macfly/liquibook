@@ -103,6 +103,9 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
   clock_t stop = start + (dur_sec * CLOCKS_PER_SEC);
 
   int count = run_test(order_book, orders, stop);
+  for (uint32_t i = 0; i <= num_to_try; ++i) {
+    delete orders[i];
+  }
   delete [] orders;
   if (count > 0) {
     std::cout << " - complete!" << std::endl;
