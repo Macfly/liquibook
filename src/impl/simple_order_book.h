@@ -25,20 +25,12 @@ public:
 private:
   FillId fill_id_;
   SimpleDepth depth_;
-
-  // TODO Move inside depth
-  TransId skipped_order_trans_id_;
-  SimpleOrder* skipped_order_;
-
-  bool fill_accounted_for(const SimpleCallback& cb);
 };
 
 
 template <int SIZE>
 SimpleOrderBook<SIZE>::SimpleOrderBook()
-: fill_id_(0),
-  skipped_order_trans_id_(0),
-  skipped_order_(NULL)
+: fill_id_(0)
 {
 }
 
@@ -54,40 +46,30 @@ SimpleOrderBook<SIZE>::perform_callback(SimpleCallback& cb)
         // If the order is completely filled on acceptance, do not modify 
         // depth unnecessarily
         if (cb.ref_qty_ == cb.order_->order_qty()) {
-          // TODO, tell Depth OPEN quantity, and have it skip and track
-          skipped_order_trans_id_ = cb.trans_id_;
-          skipped_order_ = cb.order_;
-          break; // Don't add
+          // Don't tell depth about this order - it's going away immediately.
+          // Instead tell Depth about future fills to ignore
+          depth_.ignore_fill_qty(cb.ref_qty_, cb.order_->is_buy());
+        } else {
+          // Add to bid or ask depth
+          depth_.add_order(cb.order_->price(), 
+                           cb.order_->order_qty(), 
+                           cb.order_->is_buy());
         }
-        // Add to bid or ask depth
-        depth_.add_order(cb.order_->price(), 
-                         cb.order_->order_qty(), 
-                         cb.order_->is_buy());
       }
       break;
 
     case SimpleCallback::cb_order_fill:
-      cb.order_->fill(cb.ref_qty_, cb.ref_cost_, ++fill_id_);
-      // If depth has already been adjusted for this level and transaction
-      if (fill_accounted_for(cb)) {
-        // TODO move checking inside depth
-        break;
-      }
       // If the order is a limit order
       if (cb.order_->is_limit()) {
-        // If this fill completed the order
-        if (!cb.order_->open_qty()) {
-          depth_.close_order(cb.order_->price(), 
-                             cb.ref_qty_, 
-                             cb.order_->is_buy());
-        // Else this fill reduced the order
-        } else {
-          int32_t qty_delta = -cb.ref_qty_;
-          depth_.change_qty_order(cb.order_->price(), 
-                                  qty_delta, 
-                                  cb.order_->is_buy());
-        }
+        // Inform the depth
+        depth_.fill_order(cb.order_->price(), 
+                          cb.order_->open_qty(),
+                          cb.ref_qty_,
+                          cb.order_->is_buy());
       }
+      // Update the order
+      cb.order_->fill(cb.ref_qty_, cb.ref_cost_, ++fill_id_);
+      // If depth has already been adjusted for this level and transaction
       break;
 
     case SimpleCallback::cb_order_cancel:
@@ -134,17 +116,6 @@ inline const typename SimpleOrderBook<SIZE>::SimpleDepth&
 SimpleOrderBook<SIZE>::depth() const
 {
   return depth_;
-}
-
-template <int SIZE>
-inline bool
-SimpleOrderBook<SIZE>::fill_accounted_for(const SimpleCallback& cb)
-{
-  if ((cb.trans_id_ == skipped_order_trans_id_) && 
-      (cb.order_ == skipped_order_)) {
-    return true;
-  }
-  return false;
 }
 
 } }
