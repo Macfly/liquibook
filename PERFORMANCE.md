@@ -8,6 +8,12 @@ Performance Test Results, Inserts Per Second
     <th>Note</th>
   </tr>
   <tr>
+    <td>1,250,616</td>
+    <td>1,264,227</td>
+    <td>1,463,738</td>
+    <td>Union in callback.</td>
+  </tr>
+  <tr>
     <td>1,267,135</td>
     <td>1,270,188</td>
     <td>1,469,246</td>
