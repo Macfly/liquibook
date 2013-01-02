@@ -12,6 +12,12 @@ namespace liquibook {
   typedef uint32_t FillId;
   typedef uint32_t ChangeId;
   typedef uint32_t TransId;
+  typedef uint32_t OrderConditions;
+
+  enum OrderCondition {
+    oc_all_or_none = 1,
+    oc_immediate_or_cancel = oc_all_or_none * 2
+  };
 
   // Constants used in liquibook
   extern const Price LIQUIBOOK_BASE_Export INVALID_LEVEL_PRICE;
