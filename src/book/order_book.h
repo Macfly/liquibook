@@ -156,6 +156,13 @@ protected:
 
   /// @brief find an ask
   void find_ask(const OrderPtr& order, typename Asks::iterator& result);
+
+  /// @brief match an inbound with a current order
+  virtual bool matches(const Tracker& inbound_order, 
+                       const Price& inbound_price, 
+                       const Tracker& current_order,
+                       const Price& current_price,
+                       bool inbound_is_buy);
 private:
   Bids bids_;
   Asks asks_;
@@ -403,9 +410,8 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
   typename Bids::iterator bid;
 
   for (bid = bids.begin(); bid != bids.end(); ) {
-    // If the current order has an equal or better price 
-    // than the inbound one
-    if (bid->first >= inbound_price) {
+    // If the inbound order matches the current order
+    if (matches(inbound, inbound_price, bid->second, bid->first, false)) {
       // Set return value
       matched =  true;
 
@@ -423,9 +429,11 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
       if (inbound.filled()) {
         break;
       }
-    } else {
-      // Done, no more existing orders have a matchable price
+    // Didn't match, exit loop if this was because of price
+    } else if (bid->first < inbound_price) {
       break;
+    } else {
+      ++bid;
     }
   }
 
@@ -442,9 +450,8 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
   typename Asks::iterator ask;
 
   for (ask = asks.begin(); ask != asks.end(); ) {
-    // If the current order has an equal or better price 
-    // than the inbound one
-    if (ask->first <= inbound_price) {
+    // If the inbound order matches the current order
+    if (matches(inbound, inbound_price, ask->second, ask->first, true)) {
       // Set return value
       matched =  true;
 
@@ -462,9 +469,11 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
       if (inbound.filled()) {
         break;
       }
-    } else {
-      // Done, no more existing orders have a matchable price
+    // Didn't match, exit loop if this was because of price
+    } else if (ask->first > inbound_price) {
       break;
+    } else {
+      ++ask;
     }
   }
   return matched;
@@ -705,6 +714,24 @@ OrderBook<OrderPtr>::add_order(Tracker& inbound, Price order_price)
     }
   }
   return matched;
+}
+
+template <class OrderPtr>
+inline bool
+OrderBook<OrderPtr>::matches(
+  const Tracker& /*inbound_order*/, 
+  const Price& inbound_price, 
+  const Tracker& /*current_order*/,
+  const Price& current_price,
+  bool inbound_is_buy)
+{
+  // Default is to match by price only
+  if (inbound_is_buy) {
+    return (current_price <= inbound_price);
+  } else {
+    return (current_price >= inbound_price);
+  }
+  return false;
 }
 
 } }
