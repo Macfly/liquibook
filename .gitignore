@@ -10,4 +10,5 @@ lib
 ut_depth
 ut_order_book
 ut_bbo_order_book
+ut_all_or_none
 pt_order_book

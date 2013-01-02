@@ -11,6 +11,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
+#include <list>
 
 namespace liquibook { namespace book {
 
@@ -25,7 +26,7 @@ template <class OrderPtr = Order*>
 class OrderTracker {
 public:
   /// @brief construct
-  OrderTracker(const OrderPtr& order);
+  OrderTracker(const OrderPtr& order, OrderConditions conditions = 0);
 
   /// @brief fill an order
   /// @param qty the number of shares filled in this fill
@@ -45,9 +46,15 @@ public:
 
   /// @brief get the order pointer
   OrderPtr& ptr();
+
+  ///
+  bool all_or_none() const;
+  bool immediate_or_cancel() const;
+  bool fill_or_kill() const;
 private:
   OrderPtr order_;
   Quantity filled_qty_;
+  OrderConditions conditions_;
 };
 
 /// @brief The limit order book of a security.  Template implementation allows
@@ -62,13 +69,17 @@ public:
   typedef std::vector<TypedCallback > Callbacks;
   typedef std::multimap<Price, Tracker, std::greater<Price> >  Bids;
   typedef std::multimap<Price, Tracker, std::less<Price> >     Asks;
+  typedef std::list<typename Bids::iterator> DeferredBidCrosses;
+  typedef std::list<typename Asks::iterator> DeferredAskCrosses;
 
   /// @brief construct
   OrderBook();
 
   /// @brief add an order to book
+  /// @param order the order to add
+  /// @param conditions special conditions on the order
   /// @return true if the add resulted in a fill
-  virtual bool add(const OrderPtr& order);
+  virtual bool add(const OrderPtr& order, OrderConditions conditions = 0);
 
   /// @brief cancel an order in the book
   virtual void cancel(const OrderPtr& order);
@@ -139,7 +150,7 @@ protected:
   /// @brief perform validation on the order, and create reject callbacks if not
   /// @param order the order to validate
   /// @return true if the order is valid
-  virtual bool is_valid(const OrderPtr& order);
+  virtual bool is_valid(const OrderPtr& order, OrderConditions conditions);
 
   /// @brief perform validation on the order replace, and create reject 
   ///   callbacks if not
@@ -160,12 +171,15 @@ protected:
   /// @brief match an inbound with a current order
   virtual bool matches(const Tracker& inbound_order, 
                        const Price& inbound_price, 
+                       const Quantity inbound_open_qty,
                        const Tracker& current_order,
                        const Price& current_price,
                        bool inbound_is_buy);
 private:
   Bids bids_;
   Asks asks_;
+  DeferredBidCrosses deferred_bid_crosses_;
+  DeferredAskCrosses deferred_ask_crosses_;
   Callbacks callbacks_;
   OrderBookListener* book_listener_;
   TypedOrderListener* order_listener_;
@@ -177,9 +191,12 @@ private:
 
 template <class OrderPtr>
 inline
-OrderTracker<OrderPtr>::OrderTracker(const OrderPtr& order)
+OrderTracker<OrderPtr>::OrderTracker(
+  const OrderPtr& order, 
+  OrderConditions conditions)
 : order_(order),
-  filled_qty_(0)
+  filled_qty_(0),
+  conditions_(conditions)
 {
 }
 
@@ -232,6 +249,27 @@ OrderTracker<OrderPtr>::ptr()
 }
 
 template <class OrderPtr>
+inline bool
+OrderTracker<OrderPtr>::all_or_none() const
+{
+  return conditions_ & oc_all_or_none;
+}
+
+template <class OrderPtr>
+inline bool
+OrderTracker<OrderPtr>::immediate_or_cancel() const
+{
+  return conditions_ & oc_immediate_or_cancel;
+}
+
+template <class OrderPtr>
+inline bool
+OrderTracker<OrderPtr>::fill_or_kill() const
+{
+  return conditions_ & (oc_immediate_or_cancel | oc_all_or_none);
+}
+
+template <class OrderPtr>
 OrderBook<OrderPtr>::OrderBook()
 : book_listener_(NULL),
   order_listener_(NULL),
@@ -242,7 +280,7 @@ OrderBook<OrderPtr>::OrderBook()
 
 template <class OrderPtr>
 inline bool
-OrderBook<OrderPtr>::add(const OrderPtr& order)
+OrderBook<OrderPtr>::add(const OrderPtr& order, OrderConditions conditions)
 {
   // Increment transacion ID
   ++trans_id_;  
@@ -250,7 +288,7 @@ OrderBook<OrderPtr>::add(const OrderPtr& order)
   bool matched = false;
 
   // If the order is invalid, exit
-  if (!is_valid(order)) {
+  if (!is_valid(order, conditions)) {
     // reject created by is_valid
   } else {
     callbacks_.push_back(TypedCallback::accept(order, trans_id_));
@@ -258,7 +296,7 @@ OrderBook<OrderPtr>::add(const OrderPtr& order)
 
     Price order_price = sort_price(order);
 
-    Tracker inbound(order);
+    Tracker inbound(order, conditions);
     matched = add_order(inbound, order_price);
     if (matched) {
       // Note the filled qty in the callback
@@ -408,26 +446,61 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
 {
   bool matched = false;
   typename Bids::iterator bid;
+  Quantity matched_qty = 0;
+  Quantity inbound_qty = inbound.ptr()->order_qty();
 
   for (bid = bids.begin(); bid != bids.end(); ) {
     // If the inbound order matches the current order
-    if (matches(inbound, inbound_price, bid->second, bid->first, false)) {
-      // Set return value
-      matched =  true;
+    if (matches(inbound, 
+                inbound_price, 
+                inbound.open_qty() - matched_qty, 
+                bid->second, 
+                bid->first, 
+                false)) {
+      // If the inbound order is an all or none order
+      if (inbound.all_or_none()) {
+        // Track how much of the inbound order has been matched
+        matched_qty += bid->second.ptr()->open_qty();
+        // If we have matched enough quantity to fill the inbound order
+        if (matched_qty >= inbound_qty) {
+          matched =  true;
 
-      // Adjust tracking values for cross
-      cross_orders(inbound, bid->second);
+          // Unwind the deferred crosses
+          typename DeferredBidCrosses::iterator dbc;
+          for (dbc = deferred_bid_crosses_.begin(); 
+               dbc != deferred_bid_crosses_.end(); ++dbc) {
+            // Adjust tracking values for cross
+            cross_orders(inbound, (*dbc)->second);
 
-      // If the existing order was filled, remove it
-      if (bid->second.filled()) {
-        bids.erase(bid++);
+            // If the existing order was filled, remove it
+            if ((*dbc)->second.filled()) {
+              bids.erase(*dbc);
+            }
+          }
+        // Else we have to defer crossing this order
+        } else {
+          deferred_bid_crosses_.push_back(bid);
+          ++bid;
+        }
       } else {
-        ++bid;
+        matched =  true;
       }
 
-      // if the inbound order is filled, no more matches are possible
-      if (inbound.filled()) {
-        break;
+      if (matched) {
+        // Adjust tracking values for cross
+        cross_orders(inbound, bid->second);
+
+        // If the existing order was filled, remove it
+        if (bid->second.filled()) {
+          bids.erase(bid++);
+        } else {
+          ++bid;
+        }
+
+        // if the inbound order is filled, no more matches are possible
+        if (inbound.filled()) {
+          break;
+        }
       }
     // Didn't match, exit loop if this was because of price
     } else if (bid->first < inbound_price) {
@@ -448,26 +521,61 @@ OrderBook<OrderPtr>::match_order(Tracker& inbound,
 {
   bool matched = false;
   typename Asks::iterator ask;
+  Quantity matched_qty = 0;
+  Quantity inbound_qty = inbound.ptr()->order_qty();
 
   for (ask = asks.begin(); ask != asks.end(); ) {
     // If the inbound order matches the current order
-    if (matches(inbound, inbound_price, ask->second, ask->first, true)) {
-      // Set return value
-      matched =  true;
+    if (matches(inbound, 
+                inbound_price, 
+                inbound.open_qty() - matched_qty, 
+                ask->second, 
+                ask->first, 
+                true)) {
+      // If the inbound order is an all or none order
+      if (inbound.all_or_none()) {
+        // Track how much of the inbound order has been matched
+        matched_qty += ask->second.ptr()->open_qty();
+        // If we have matched enough quantity to fill the inbound order
+        if (matched_qty >= inbound_qty) {
+          matched =  true;
 
-      // Adjust tracking values for cross
-      cross_orders(inbound, ask->second);
+          // Unwind the deferred crosses
+          typename DeferredAskCrosses::iterator dac;
+          for (dac = deferred_ask_crosses_.begin(); 
+               dac != deferred_ask_crosses_.end(); ++dac) {
+            // Adjust tracking values for cross
+            cross_orders(inbound, (*dac)->second);
 
-      // If the existing order was filled, remove it
-      if (ask->second.filled()) {
-        asks.erase(ask++);
+            // If the existing order was filled, remove it
+            if ((*dac)->second.filled()) {
+              asks.erase(*dac);
+            }
+          }
+        // Else we have to defer crossing this order
+        } else {
+          deferred_ask_crosses_.push_back(ask);
+          ++ask;
+        }
       } else {
-        ++ask;
+        matched =  true;
       }
 
-      // if the inbound order is filled, no more matches are possible
-      if (inbound.filled()) {
-        break;
+      if (matched) {
+        // Adjust tracking values for cross
+        cross_orders(inbound, ask->second);
+
+        // If the existing order was filled, remove it
+        if (ask->second.filled()) {
+          asks.erase(ask++);
+        } else {
+          ++ask;
+        }
+
+        // if the inbound order is filled, no more matches are possible
+        if (inbound.filled()) {
+          break;
+        }
       }
     // Didn't match, exit loop if this was because of price
     } else if (ask->first > inbound_price) {
@@ -617,7 +725,7 @@ OrderBook<OrderPtr>::populate_ask_depth_level_after(const Price& price,
 
 template <class OrderPtr>
 inline bool
-OrderBook<OrderPtr>::is_valid(const OrderPtr& order)
+OrderBook<OrderPtr>::is_valid(const OrderPtr& order, OrderConditions )
 {
   if (order->order_qty() == 0) {
     callbacks_.push_back(TypedCallback::reject(order, "size must be positive", trans_id_));
@@ -719,19 +827,37 @@ OrderBook<OrderPtr>::add_order(Tracker& inbound, Price order_price)
 template <class OrderPtr>
 inline bool
 OrderBook<OrderPtr>::matches(
-  const Tracker& /*inbound_order*/, 
+  const Tracker& /*inbound_order*/,
   const Price& inbound_price, 
-  const Tracker& /*current_order*/,
+  const Quantity inbound_open_qty,
+  const Tracker& current_order,
   const Price& current_price,
   bool inbound_is_buy)
 {
-  // Default is to match by price only
+  // Check for price mismatch
   if (inbound_is_buy) {
-    return (current_price <= inbound_price);
+    // If the inbound buy is not as high as the existing sell
+    if (inbound_price < current_price) {
+      return false;
+    }
   } else {
-    return (current_price >= inbound_price);
+    // Else if the inbound sell is not as low as the existing buy
+    if (inbound_price > current_price) {
+      return false;
+    }
   }
-  return false;
+
+  if (current_order.all_or_none()) {
+    // Don't match current if not completely filled
+    if (current_order.open_qty() > inbound_open_qty) {
+      return false;
+    }
+  }
+
+  // If the inbound order is all or none, we can only check quantity after
+  // all matches take place
+
+  return true;
 }
 
 } }
