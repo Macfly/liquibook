@@ -11,7 +11,7 @@ using book::OrderBook;
 using book::DepthLevel;
 
 typedef impl::SimpleOrderBook<5> SimpleOrderBook;
-typedef typename SimpleOrderBook::SimpleDepth SimpleDepth;
+typedef SimpleOrderBook::SimpleDepth SimpleDepth;
 
 template <class OrderBook, class OrderPtr>
 bool add_and_verify(OrderBook& order_book,
