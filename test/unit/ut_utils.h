@@ -26,6 +26,9 @@ bool add_and_verify(OrderBook& order_book,
     if (complete_expected) {
       // State should be complete
       return impl::os_complete == order->state();
+    } else if (conditions & oc_immediate_or_cancel) {
+      // State should be cancelled
+      return impl::os_cancelled == order->state();
     } else {
       // State should be accepted
       return impl::os_accepted == order->state();
@@ -111,11 +114,13 @@ class FillCheck {
 public:
   FillCheck(OrderPtr order, 
             Quantity filled_qty,
-            Cost filled_cost)
+            Cost filled_cost,
+            OrderConditions conditions = 0)
   : order_(order),
     expected_filled_qty_(order->filled_qty() + filled_qty),
     expected_open_qty_(order->order_qty() - expected_filled_qty_),
-    expected_filled_cost_(order->filled_cost() + (filled_cost))
+    expected_filled_cost_(order->filled_cost() + (filled_cost)),
+    conditions_(conditions)
   {
   }
 
@@ -128,6 +133,7 @@ public:
   Quantity expected_filled_qty_;
   Quantity expected_open_qty_;
   Cost expected_filled_cost_;
+  OrderConditions conditions_;
 
   void verify_filled() {
     if (expected_filled_qty_ !=  order_->filled_qty()) {
@@ -145,16 +151,25 @@ public:
                 << " expected " << expected_filled_cost_ << std::endl;
       throw std::runtime_error("Unexpected filled cost");
     }
+    // If the order was filled, and is not complete
     if (order_->state() != impl::os_complete && !expected_open_qty_) {
       std::cout << "state " << order_->state() 
                 << " expected " << impl::os_complete << std::endl;
       throw std::runtime_error("Unexpected state with no open quantity");
-    }
-    if (order_->state() != impl::os_accepted && expected_open_qty_) {
-      std::cout << "state " << order_->state() 
-                << " expected " << impl::os_accepted << std::endl;
-      throw std::runtime_error("Unexpected state with open quantity");
-    }
+    // Else If the order was not filled
+    } else if (expected_open_qty_) {
+      bool IOC = (conditions_ & oc_immediate_or_cancel);
+      if (order_->state() != impl::os_accepted && !IOC) {
+        std::cout << "state " << order_->state() 
+                  << " expected " << impl::os_accepted << std::endl;
+        throw std::runtime_error("Unexpected state with open quantity");
+      }
+      if (order_->state() != impl::os_cancelled && IOC) {
+        std::cout << "state " << order_->state() 
+                  << " expected " << impl::os_cancelled << std::endl;
+        throw std::runtime_error("Unexpected state for IOC with open quantity");
+      }
+    } 
   }
 };
 

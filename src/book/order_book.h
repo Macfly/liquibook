@@ -47,10 +47,12 @@ public:
   /// @brief get the order pointer
   OrderPtr& ptr();
 
-  ///
+  /// @ brief is this order marked all or none?
   bool all_or_none() const;
+
+  /// @ brief is this order marked immediate or cancel?
   bool immediate_or_cancel() const;
-  bool fill_or_kill() const;
+
 private:
   OrderPtr order_;
   Quantity filled_qty_;
@@ -263,13 +265,6 @@ OrderTracker<OrderPtr>::immediate_or_cancel() const
 }
 
 template <class OrderPtr>
-inline bool
-OrderTracker<OrderPtr>::fill_or_kill() const
-{
-  return conditions_ & (oc_immediate_or_cancel | oc_all_or_none);
-}
-
-template <class OrderPtr>
 OrderBook<OrderPtr>::OrderBook()
 : book_listener_(NULL),
   order_listener_(NULL),
@@ -301,6 +296,10 @@ OrderBook<OrderPtr>::add(const OrderPtr& order, OrderConditions conditions)
     if (matched) {
       // Note the filled qty in the callback
       accept_cb.match_qty = inbound.filled_qty();
+    }
+    // Cancel any unfilled IOC order
+    if (inbound.immediate_or_cancel() && !inbound.filled()) {
+      callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
     }
   }
   return matched;
@@ -809,8 +808,8 @@ OrderBook<OrderPtr>::add_order(Tracker& inbound, Price order_price)
     matched = match_order(inbound, order_price, bids_);
   }
 
-  // If order has remaining open quantity
-  if (inbound.open_qty()) {
+  // If order has remaining open quantity and is not immediate or cancel
+  if (inbound.open_qty() && !inbound.immediate_or_cancel()) {
     // If this is a buy order
     if (order->is_buy()) {
       // Insert into bids

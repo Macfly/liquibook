@@ -25,3 +25,10 @@ project (ut_all_or_none) : liquibook_unit, liquibook_book, liquibook_impl {
     ut_all_or_none.cpp
   }
 }
+
+project (ut_immediate_or_cancel) : liquibook_unit, liquibook_book, liquibook_impl {
+  exename = *
+  Source_Files {
+    ut_immediate_or_cancel.cpp
+  }
+}
