@@ -3,6 +3,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace liquibook;
 typedef impl::SimpleOrderBook<5> DepthOrderBook;
