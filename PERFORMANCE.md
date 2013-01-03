@@ -8,6 +8,12 @@ Performance Test Results, Inserts Per Second
     <th>Note</th>
   </tr>
   <tr>
+    <td>1,231,959</td>
+    <td>1,273,510</td>
+    <td>1,506,066</td>
+    <td>Handling all or none order condition.</td>
+  </tr>
+  <tr>
     <td>1,249,544</td>
     <td>1,305,482</td>
     <td>1,531,998</td>
