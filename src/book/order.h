@@ -2,13 +2,13 @@
 #define order_h
 
 #include "base/types.h"
-#include "liquibook_book_export.h"
+#include "liquibook_export.h"
 
 namespace liquibook { namespace book {
 
 /// @brief generic listener of order events.  Used by common version of 
 ///   OrderBook::process_callback().
-class LIQUIBOOK_BOOK_Export Order {
+class Liquibook_Export Order {
 public:
   /// @brief is this a limit order?
   bool is_limit() const;

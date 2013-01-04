@@ -1,4 +1,3 @@
 project : liquibook_lib, liquibook_book {
-  macros += BOOQUID_IMPL_BUILD_DLL
 }
 

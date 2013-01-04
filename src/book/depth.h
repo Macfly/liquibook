@@ -1,11 +1,11 @@
 #ifndef depth_h
 #define depth_h
 
-#include "liquibook_book_export.h"
 #include "depth_level.h"
 #include "base/types.h"
 #include <map>
 #include <cmath>
+#include <string.h>
 
 namespace liquibook { namespace book {
 

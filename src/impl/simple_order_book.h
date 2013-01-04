@@ -1,7 +1,6 @@
 #ifndef simple_order_book_h
 #define simple_order_book_h
 
-#include "liquibook_impl_export.h"
 #include "simple_order.h"
 #include "book/order_book.h"
 #include "book/depth.h"

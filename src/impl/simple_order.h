@@ -1,7 +1,7 @@
 #ifndef simpleorder_h
 #define simpleorder_h
 
-#include "liquibook_impl_export.h"
+#include "liquibook_export.h"
 #include "book/order.h"
 #include "base/types.h"
 
@@ -16,7 +16,7 @@ enum OrderState {
 };
 
 /// @brief impelementation of the Order interface for testing purposes.
-class LIQUIBOOK_IMPL_Export SimpleOrder : public book::Order {
+class Liquibook_Export SimpleOrder : public book::Order {
 public:
   SimpleOrder(bool is_buy,
               Price price,

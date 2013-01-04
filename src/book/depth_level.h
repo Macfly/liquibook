@@ -1,13 +1,13 @@
 #ifndef depth_level_h
 #define depth_level_h
 
-#include "liquibook_book_export.h"
+#include "liquibook_export.h"
 #include "base/types.h"
 
 namespace liquibook { namespace book {
 
 /// @brief a single level of the limit order book aggregated by price
-class LIQUIBOOK_BOOK_Export DepthLevel {
+class Liquibook_Export DepthLevel {
 public:
   /// @brief construct
   DepthLevel();
