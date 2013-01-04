@@ -15,6 +15,7 @@ lib
 .rvmrc
 .shobj
 .depend*
+*.exe
 ut_depth
 ut_order_book
 ut_bbo_order_book

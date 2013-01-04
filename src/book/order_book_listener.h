@@ -8,7 +8,7 @@ namespace liquibook { namespace book {
 /// @brief generic listener of order book events
 /// Not currently used
 template <class OrderPtr = Order*>
-class OrderBookListener
+class OrderBookListener {
 public:
   typedef OrderBook<OrderPtr> OrderBook;
 
