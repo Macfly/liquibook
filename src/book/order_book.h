@@ -405,7 +405,8 @@ OrderBook<OrderPtr>::replace(
         Quantity new_open_qty = ask->second.open_qty() + size_delta;
 
         // If this is a reduction beyond open quantity
-        if (size_decrease && (ask->second.open_qty() < std::abs(size_delta))) {
+        if (size_decrease && 
+            (int)ask->second.open_qty() < std::abs(size_delta))) {
           // Reject the replace
           callbacks_.push_back(
               TypedCallback::replace_reject(order, 
