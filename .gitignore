@@ -2,6 +2,7 @@ GNUmakefile*
 *vcxproj*
 *.sln
 *.suo
+*.pdb
 lib
 *.swp
 *.exp
