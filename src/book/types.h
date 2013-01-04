@@ -2,7 +2,6 @@
 #define types_h
 
 #include <stdint.h>
-#include "liquibook_export.h"
 
 namespace liquibook { namespace book {
   // Types used in Liquibook
@@ -20,13 +19,13 @@ namespace liquibook { namespace book {
   };
 
   // Constants used in liquibook
-  extern const Price Liquibook_Export INVALID_LEVEL_PRICE;
-  extern const Price Liquibook_Export MARKET_ORDER_PRICE;
-  extern const Price Liquibook_Export MARKET_ORDER_BID_SORT_PRICE;
-  extern const Price Liquibook_Export MARKET_ORDER_ASK_SORT_PRICE;
-  extern const Price Liquibook_Export PRICE_UNCHANGED;
+  extern const Price INVALID_LEVEL_PRICE;
+  extern const Price MARKET_ORDER_PRICE;
+  extern const Price MARKET_ORDER_BID_SORT_PRICE;
+  extern const Price MARKET_ORDER_ASK_SORT_PRICE;
+  extern const Price PRICE_UNCHANGED;
 
-  extern const int32_t Liquibook_Export SIZE_UNCHANGED;
+  extern const int32_t SIZE_UNCHANGED;
 
 } } // namespace
 

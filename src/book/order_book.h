@@ -1,7 +1,6 @@
 #ifndef order_book_h
 #define order_book_h
 
-#include "liquibook_export.h"
 #include "callback.h"
 #include "order.h"
 #include "order_listener.h"
@@ -63,7 +62,7 @@ private:
 ///        user to supply common or smart pointers, and to provide a different
 ///        Order class completely (as long as interface is obeyed).
 template <class OrderPtr = Order*>
-class Liquibook_Export OrderBook {
+class OrderBook {
 public:
   typedef OrderTracker<OrderPtr > Tracker;
   typedef Callback<OrderPtr > TypedCallback;
