@@ -22,7 +22,6 @@ Build Dependencies
 ------------------
 
 * [MPC](http://www.ociweb.com/products/mpc) for cross-platform builds
-* ACE - not sure why?
 * BOOST for unit testing only
 
 Build Instructions
@@ -30,10 +29,10 @@ Build Instructions
 
 ## Linux
 
-> $ cd liquibook # or whatever dir
-> $ . env.sh
-> $ mwc.pl -type gnuace liquibook.mwc
-> $ make depend all
+$ cd liquibook # or whatever dir
+$ . env.sh
+$ mwc.pl -type gnuace liquibook.mwc
+$ make depend all
 
 ## Windows
 
