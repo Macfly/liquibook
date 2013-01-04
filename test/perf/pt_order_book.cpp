@@ -73,7 +73,7 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
   
   for (uint32_t i = 0; i <= num_to_try; ++i) {
     bool is_buy((i % 2) == 0);
-    uint delta = is_buy ? 1880 : 1884;
+    uint32_t delta = is_buy ? 1880 : 1884;
     // ASK 1893
     // ASK 1892
     // ASK 1891
