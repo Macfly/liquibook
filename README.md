@@ -29,10 +29,12 @@ Build Instructions
 
 ## Linux
 
+<pre>
 $ cd liquibook # or whatever dir
 $ . env.sh
 $ mwc.pl -type gnuace liquibook.mwc
 $ make depend all
+</pre>
 
 ## Windows
 
