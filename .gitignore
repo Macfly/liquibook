@@ -1,6 +1,12 @@
 GNUmakefile*
+*vcxproj*
+*.sln
+*.suo
 lib
 *.swp
+*.exp
+*sdf
+*.lib
 *.so
 *.so.*
 *.o
@@ -13,3 +19,6 @@ ut_bbo_order_book
 ut_all_or_none
 ut_immediate_or_cancel
 pt_order_book
+Debug
+Release
+ipch
