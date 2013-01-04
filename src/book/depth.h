@@ -2,7 +2,7 @@
 #define depth_h
 
 #include "depth_level.h"
-#include "base/types.h"
+#include "types.h"
 #include <map>
 #include <cmath>
 #include <string.h>

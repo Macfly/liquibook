@@ -3,7 +3,9 @@
 
 #include "liquibook_export.h"
 #include "book/order.h"
-#include "base/types.h"
+#include "book/types.h"
+
+using namespace liquibook::book;
 
 namespace liquibook { namespace impl {
 
@@ -16,7 +18,7 @@ enum OrderState {
 };
 
 /// @brief impelementation of the Order interface for testing purposes.
-class Liquibook_Export SimpleOrder : public book::Order {
+class Liquibook_Export SimpleOrder : public Order {
 public:
   SimpleOrder(bool is_buy,
               Price price,

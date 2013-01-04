@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "liquibook_export.h"
 
-namespace liquibook {
+namespace liquibook { namespace book {
   // Types used in Liquibook
   typedef uint32_t Price;
   typedef uint32_t Quantity;
@@ -27,6 +27,7 @@ namespace liquibook {
   extern const Price Liquibook_Export PRICE_UNCHANGED;
 
   extern const int32_t Liquibook_Export SIZE_UNCHANGED;
-}
+
+} } // namespace
 
 #endif

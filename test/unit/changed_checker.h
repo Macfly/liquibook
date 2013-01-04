@@ -5,6 +5,7 @@ namespace liquibook {
 
 using book::Depth;
 using book::DepthLevel;
+using book::ChangeId;
 
 namespace test {
 

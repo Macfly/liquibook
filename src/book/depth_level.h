@@ -2,7 +2,7 @@
 #define depth_level_h
 
 #include "liquibook_export.h"
-#include "base/types.h"
+#include "types.h"
 
 namespace liquibook { namespace book {
 

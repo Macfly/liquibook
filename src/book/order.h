@@ -1,7 +1,7 @@
 #ifndef order_h
 #define order_h
 
-#include "base/types.h"
+#include "types.h"
 #include "liquibook_export.h"
 
 namespace liquibook { namespace book {

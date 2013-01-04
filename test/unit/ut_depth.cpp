@@ -13,9 +13,9 @@ typedef Depth<5> SizedDepth;
 typedef test::ChangedChecker<5> ChangedChecker;
 
 bool verify_level(const DepthLevel*& level, 
-                  Price price, 
+                  book::Price price, 
                   uint32_t order_count, 
-                  Quantity aggregate_qty)
+                  book::Quantity aggregate_qty)
 {
   bool matched = true;
   if (price != level->price()) {

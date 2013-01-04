@@ -1,5 +1,5 @@
 #include "depth_level.h"
-#include "base/types.h"
+#include "types.h"
 #include <stdexcept>
 
 namespace liquibook { namespace book {

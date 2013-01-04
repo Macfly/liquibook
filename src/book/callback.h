@@ -2,7 +2,7 @@
 #define callback_h
 
 #include "order.h"
-#include "base/types.h"
+#include "types.h"
 
 namespace liquibook { namespace book {
 

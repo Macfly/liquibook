@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(TestBidsMultimapSortCorrect)
   int index = 0;
 
   for (bid = bids.begin(); bid != bids.end(); ++bid, ++index) {
-    if (expected_order[index]->price() == liquibook::MARKET_ORDER_PRICE) {
+    if (expected_order[index]->price() == MARKET_ORDER_PRICE) {
       BOOST_REQUIRE_EQUAL(MARKET_ORDER_BID_SORT_PRICE, bid->first);
     } else {
       BOOST_REQUIRE_EQUAL(expected_order[index]->price(), bid->first);
