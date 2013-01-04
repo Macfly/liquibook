@@ -124,7 +124,7 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
     return false;
   }
 
-  return count;
+  return count > 0;
 }
 
 int main(int argc, const char* argv[])

@@ -14,6 +14,7 @@
 
 namespace liquibook { namespace book {
 
+template<class OrderPtr>
 class OrderBookListener;
 
 template<class OrderPtr>
@@ -67,6 +68,7 @@ public:
   typedef OrderTracker<OrderPtr > Tracker;
   typedef Callback<OrderPtr > TypedCallback;
   typedef OrderListener<OrderPtr > TypedOrderListener;
+  typedef OrderBookListener<OrderPtr > TypedOrderBookListener;
   typedef std::vector<TypedCallback > Callbacks;
   typedef std::multimap<Price, Tracker, std::greater<Price> >  Bids;
   typedef std::multimap<Price, Tracker, std::less<Price> >     Asks;
@@ -182,7 +184,7 @@ private:
   DeferredBidCrosses deferred_bid_crosses_;
   DeferredAskCrosses deferred_ask_crosses_;
   Callbacks callbacks_;
-  OrderBookListener* book_listener_;
+  TypedOrderBookListener* book_listener_;
   TypedOrderListener* order_listener_;
   TransId trans_id_;
 
@@ -253,14 +255,14 @@ template <class OrderPtr>
 inline bool
 OrderTracker<OrderPtr>::all_or_none() const
 {
-  return conditions_ & oc_all_or_none;
+  return bool(conditions_ & oc_all_or_none);
 }
 
 template <class OrderPtr>
 inline bool
 OrderTracker<OrderPtr>::immediate_or_cancel() const
 {
-  return conditions_ & oc_immediate_or_cancel;
+  return bool(conditions_ & oc_immediate_or_cancel);
 }
 
 template <class OrderPtr>
