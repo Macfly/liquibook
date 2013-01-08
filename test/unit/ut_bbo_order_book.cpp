@@ -17,7 +17,7 @@ using impl::SimpleOrder;
 typedef OrderTracker<SimpleOrder*> SimpleTracker;
 typedef impl::SimpleOrderBook<1> SimpleOrderBook;
 typedef test::ChangedChecker<1> ChangedChecker;
-typedef typename SimpleOrderBook::SimpleDepth SimpleDepth;
+typedef SimpleOrderBook::SimpleDepth SimpleDepth;
 
 template <class OrderBook, class OrderPtr>
 bool add_and_verify(OrderBook& order_book,

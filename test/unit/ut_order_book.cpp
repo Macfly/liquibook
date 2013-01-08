@@ -2219,7 +2219,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceAskPriceChange)
   cc.reset();
 
   // Verify price change in book
-  SimpleOrderBook::Asks::const_iterator ask = order_book.asks().begin();
+  SimpleOrderBook::Bids::const_iterator ask = order_book.asks().begin();
   BOOST_REQUIRE_EQUAL(1253, ask->first);
   BOOST_REQUIRE_EQUAL(&ask0, ask->second.ptr());
   BOOST_REQUIRE_EQUAL(1253, (++ask)->first);
