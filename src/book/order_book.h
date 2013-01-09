@@ -260,7 +260,7 @@ template <class OrderPtr>
 inline bool
 OrderTracker<OrderPtr>::immediate_or_cancel() const
 {
-  return bool(conditions_ & oc_immediate_or_cancel);
+  return bool((conditions_ & oc_immediate_or_cancel) != 0);
 }
 
 template <class OrderPtr>

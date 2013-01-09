@@ -158,7 +158,7 @@ public:
       throw std::runtime_error("Unexpected state with no open quantity");
     // Else If the order was not filled
     } else if (expected_open_qty_) {
-      bool IOC = (conditions_ & oc_immediate_or_cancel);
+      bool IOC = ((conditions_ & oc_immediate_or_cancel) != 0);
       if (order_->state() != impl::os_accepted && !IOC) {
         std::cout << "state " << order_->state() 
                   << " expected " << impl::os_accepted << std::endl;

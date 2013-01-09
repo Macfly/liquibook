@@ -256,7 +256,7 @@ Depth<SIZE>::fill_order(
   } else if (open_qty == fill_qty) {
     close_order(price, open_qty, is_bid);
   } else {
-    change_qty_order(price, -fill_qty, is_bid);
+    change_qty_order(price, -(int32_t)fill_qty, is_bid);
   }
 }
 
