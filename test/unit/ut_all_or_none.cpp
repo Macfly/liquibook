@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE liquibook_AllOrNone
 #include <boost/test/unit_test.hpp>
@@ -658,16 +661,98 @@ BOOST_AUTO_TEST_CASE(TestReplaceAonBidSmallerMatch)
   BOOST_REQUIRE_EQUAL(2, order_book.asks().size());
 }
 
-BOOST_AUTO_TEST_CASE(TestReplaceAonBidLargerNoMatch)
-{
-}
-
 BOOST_AUTO_TEST_CASE(TestReplaceAonBidPriceMatch)
 {
+  SimpleOrderBook order_book;
+  SimpleOrder ask2(false, 1253, 100);
+  SimpleOrder ask1(false, 1252, 100);
+  SimpleOrder ask0(false, 1251, 100);
+  SimpleOrder bid1(true,  1251, 200); // AON
+  SimpleOrder bid0(true,  1250, 100);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false, false, AON));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask2, false));
+
+  // Verify sizes
+  BOOST_REQUIRE_EQUAL(2, order_book.bids().size());
+  BOOST_REQUIRE_EQUAL(3, order_book.asks().size());
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 200));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1251, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 100));
+
+  // Match - complete
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc2(&ask0, 100, 125100);
+    SimpleFillCheck fc2(&ask1, 100, 125200);
+    BOOST_REQUIRE(replace_and_verify(
+        order_book, &bid1, 0, 1252, impl::os_complete, 200));
+  ); }
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 100));
+
+  // Verify sizes
+  BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
+  BOOST_REQUIRE_EQUAL(1, order_book.asks().size());
 }
 
-BOOST_AUTO_TEST_CASE(TestReplaceAonBidPriceNoMatch)
+BOOST_AUTO_TEST_CASE(TestReplaceBidLargerMatchAon)
 {
+  SimpleOrderBook order_book;
+  SimpleOrder ask2(false, 1253, 100);
+  SimpleOrder ask1(false, 1252, 100);
+  SimpleOrder ask0(false, 1251, 200); // AON
+  SimpleOrder bid1(true,  1251, 100);
+  SimpleOrder bid0(true,  1250, 100);
+
+  // No match
+  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false, false, AON));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
+  BOOST_REQUIRE(add_and_verify(order_book, &ask2, false));
+
+  // Verify sizes
+  BOOST_REQUIRE_EQUAL(2, order_book.bids().size());
+  BOOST_REQUIRE_EQUAL(3, order_book.asks().size());
+
+  // Verify depth
+  DepthCheck dc(order_book.depth());
+  BOOST_REQUIRE(dc.verify_bid(1251, 1, 100));
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1251, 1, 200));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 100));
+
+std::cout << "Running" << std::endl;
+BOOST_REQUIRE(1 == 2);
+  // Match - complete
+  { BOOST_REQUIRE_NO_THROW(
+    SimpleFillCheck fc2(&ask0, 200, 125100);
+    BOOST_REQUIRE(replace_and_verify(
+        order_book, &bid1, -100, PRICE_UNCHANGED, impl::os_complete, 200));
+  ); }
+
+  // Verify depth
+  dc.reset();
+  BOOST_REQUIRE(dc.verify_bid(1250, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1252, 1, 100));
+  BOOST_REQUIRE(dc.verify_ask(1253, 1, 100));
+
+  // Verify sizes
+  BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
+  BOOST_REQUIRE_EQUAL(2, order_book.asks().size());
 }
 
 } // Namespace

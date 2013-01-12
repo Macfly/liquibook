@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #ifndef depth_level_h
 #define depth_level_h
 

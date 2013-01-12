@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #ifndef types_h
 #define types_h
 

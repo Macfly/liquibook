@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE liquibook_Depth
 #include <boost/test/unit_test.hpp>
