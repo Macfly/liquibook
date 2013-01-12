@@ -27,13 +27,13 @@ public:
 
   bool verify_bid_changed(int l0, int l1, int l2, int l3, int l4)
   {
-    return verify_side_changed(depth_.bids(), bool(l0), bool(l1),
-                               bool(l2), bool(l3), bool(l4));
+    return verify_side_changed(depth_.bids(), bool(l0 == 1), bool(l1 ==1),
+                               bool(l2 == 1), bool(l3 == 1), bool(l4 == 1));
   }
   bool verify_ask_changed(int l0, int l1, int l2, int l3, int l4)
   {
-    return verify_side_changed(depth_.asks(), bool(l0), bool(l1),
-                               bool(l2), bool(l3), bool(l4));
+    return verify_side_changed(depth_.asks(), bool(l0 == 1), bool(l1 == 1),
+                               bool(l2 == 1), bool(l3 == 1), bool(l4 == 1));
   }
 
   bool verify_bid_stamps(ChangeId l0, ChangeId l1, ChangeId l2, 
@@ -53,11 +53,11 @@ public:
     bool matched = true;
     ChangeId last_change = depth_.last_published_change();
     
-    if (depth_.bids()->changed_since(last_change) != bool(bid_changed)) {
+    if (depth_.bids()->changed_since(last_change) != bool(bid_changed == 1)) {
       std::cout << "best bid changed incorrect" << std::endl;
       matched = false;
     }
-    if (depth_.asks()->changed_since(last_change) != bool(ask_changed)) {
+    if (depth_.asks()->changed_since(last_change) != bool(ask_changed == 1)) {
       std::cout << "best ask changed incorrect" << std::endl;
       matched = false;
     }
