@@ -1,5 +1,7 @@
 Performance Test Results, Inserts Per Second
-
+============================================
+(newest results on top)
+ 
 <table>
   <tr>
     <th>5 Level Depth</th>
