@@ -30,8 +30,10 @@ Build Instructions
 
 ## Linux
 
+Make sure the $BOOST_ROOT environment variable is set, then open a shell
+
 <pre>
-$ cd liquibook # or whatever dir
+$ cd liquibook
 $ . env.sh
 $ mwc.pl -type make liquibook.mwc
 $ make depend
@@ -40,6 +42,16 @@ $ make all
 
 ## Windows
 
-Not yet supported  :(
+Make sure the %(BOOST_ROOT) environment variable is set, then open the Visual Studio Command Prompt of choice (this example is for Visual Studio 2010):
+<pre>
+> cd \liquibook
+> winenv.bat
+> mwc.pl -type vc10 liquibook.mwc
+</pre>
+
+Then in the same window, start Visual Studio from the command line, opening liquibook.sln (This example is the Visual Studio 2010 Express Edition):
+<pre>
+> "%VC10100COMNTOOLS%\..\IDE\VCExpress.exe liquibook.sln
+</pre>
 
 See other [build notes](liquibook/blob/master/BUILD_NOTES.md).
