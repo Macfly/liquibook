@@ -51,7 +51,7 @@ Make sure the %(BOOST_ROOT) environment variable is set, then open the Visual St
 
 Then in the same window, start Visual Studio from the command line, opening liquibook.sln (This example is the Visual Studio 2010 Express Edition):
 <pre>
-> "%VC10100COMNTOOLS%\..\IDE\VCExpress.exe liquibook.sln
+> "%VS100COMNTOOLS%\..\IDE\VCExpress.exe" liquibook.sln
 </pre>
 
 See other [build notes](liquibook/blob/master/BUILD_NOTES.md).
