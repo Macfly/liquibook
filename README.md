@@ -33,10 +33,13 @@ Build Instructions
 <pre>
 $ cd liquibook # or whatever dir
 $ . env.sh
-$ mwc.pl -type gnuace liquibook.mwc
-$ make depend all
+$ mwc.pl -type make liquibook.mwc
+$ make depend
+$ make all
 </pre>
 
 ## Windows
 
 Not yet supported  :(
+
+See other [build notes](liquibook/blob/master/BUILD_NOTES.md).

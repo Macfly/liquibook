@@ -1,4 +1,4 @@
 workspace(liquibook) {
-  cmdline += -include mpc 
+  cmdline += -include mpc -feature_file liquibook.features
 }
 
