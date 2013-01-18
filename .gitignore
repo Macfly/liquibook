@@ -1,4 +1,5 @@
 GNUmakefile*
+Makefile*
 *vcxproj*
 *.sln
 *.suo
