@@ -707,7 +707,6 @@ BOOST_AUTO_TEST_CASE(TestReplaceAonBidPriceMatch)
   BOOST_REQUIRE_EQUAL(1, order_book.asks().size());
 }
 
-/*
 BOOST_AUTO_TEST_CASE(TestReplaceBidLargerMatchAon)
 {
   SimpleOrderBook order_book;
@@ -738,7 +737,7 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidLargerMatchAon)
 
   // Match - complete
   { BOOST_REQUIRE_NO_THROW(
-    SimpleFillCheck fc2(&ask0, 200, 125100);
+    SimpleFillCheck fc2(&ask0, 200, 200 * 1251);
     BOOST_REQUIRE(replace_and_verify(
         order_book, &bid1, 100, PRICE_UNCHANGED, impl::os_complete, 200));
   ); }
@@ -753,5 +752,5 @@ BOOST_AUTO_TEST_CASE(TestReplaceBidLargerMatchAon)
   BOOST_REQUIRE_EQUAL(1, order_book.bids().size());
   BOOST_REQUIRE_EQUAL(2, order_book.asks().size());
 }
-*/
+
 } // Namespace
