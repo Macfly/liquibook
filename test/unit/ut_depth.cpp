@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(TestAppendBidLevels)
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 600));
   BOOST_REQUIRE(verify_level(bid, 1232, 1, 100));
   ChangedChecker cc(depth);
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 4, 3, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestInsertBidLevels)
