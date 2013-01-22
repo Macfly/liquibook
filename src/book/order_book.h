@@ -377,13 +377,13 @@ OrderBook<OrderPtr>::replace(
         Quantity new_open_qty = bid->second.open_qty();
         // If the size change will close the order
         if (!new_open_qty) {
-          bids_.erase(bid); // Remove order
           callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
+          bids_.erase(bid); // Remove order
         // Else rematch the new order - there could be a price change
         // or size change - that could cause all or none match
         } else {
-          bids_.erase(bid); // Remove order
           matched = add_order(bid->second, price);
+          bids_.erase(bid); // Remove order
         }
       }
     }
