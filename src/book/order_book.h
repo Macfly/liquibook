@@ -373,8 +373,8 @@ OrderBook<OrderPtr>::replace(
         // Accept the replace
         callbacks_.push_back(
             TypedCallback::replace(order, new_order_qty, price, trans_id_));
+        Quantity new_open_qty = bid->second.open_qty() + size_delta;
         bid->second.change_qty(size_delta);  // Update my copy
-        Quantity new_open_qty = bid->second.open_qty();
         // If the size change will close the order
         if (!new_open_qty) {
           callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
@@ -382,7 +382,7 @@ OrderBook<OrderPtr>::replace(
         // Else rematch the new order - there could be a price change
         // or size change - that could cause all or none match
         } else {
-          matched = add_order(bid->second, price);
+          matched = add_order(bid->second, price); // Add order
           bids_.erase(bid); // Remove order
         }
       }
@@ -400,16 +400,16 @@ OrderBook<OrderPtr>::replace(
         callbacks_.push_back(
             TypedCallback::replace(order, new_order_qty, price, trans_id_));
         Quantity new_open_qty = ask->second.open_qty() + size_delta;
+        ask->second.change_qty(size_delta);  // Update my copy
         // If the size change will close the order
         if (!new_open_qty) {
-          asks_.erase(ask); // Remove order
           callbacks_.push_back(TypedCallback::cancel(order, trans_id_));
+          asks_.erase(ask); // Remove order
         // Else rematch the new order if there is a price change or the order
         // is all or none (for which a size change could cause it to match)
         } else if (price_change || ask->second.all_or_none()) {
+          matched = add_order(ask->second, price); // Add order
           asks_.erase(ask); // Remove order
-          ask->second.change_qty(size_delta);  // Update my copy
-          matched = add_order(ask->second, price);
         }
       }
     } 
