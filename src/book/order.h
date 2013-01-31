@@ -1,12 +1,16 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #ifndef order_h
 #define order_h
 
-#include "base/types.h"
-#include "liquibook_book_export.h"
+#include "types.h"
 
 namespace liquibook { namespace book {
 
-class LIQUIBOOK_BOOK_Export Order {
+/// @brief generic listener of order events.  Used by common version of 
+///   OrderBook::process_callback().
+class Order {
 public:
   /// @brief is this a limit order?
   bool is_limit() const;

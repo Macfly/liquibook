@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE liquibook_BboOrderBook
 #include <boost/test/unit_test.hpp>
@@ -17,7 +20,7 @@ using impl::SimpleOrder;
 typedef OrderTracker<SimpleOrder*> SimpleTracker;
 typedef impl::SimpleOrderBook<1> SimpleOrderBook;
 typedef test::ChangedChecker<1> ChangedChecker;
-typedef typename SimpleOrderBook::SimpleDepth SimpleDepth;
+typedef SimpleOrderBook::SimpleDepth SimpleDepth;
 
 template <class OrderBook, class OrderPtr>
 bool add_and_verify(OrderBook& order_book,
@@ -223,7 +226,7 @@ BOOST_AUTO_TEST_CASE(TestBidsMultimapSortCorrect)
   int index = 0;
 
   for (bid = bids.begin(); bid != bids.end(); ++bid, ++index) {
-    if (expected_order[index]->price() == liquibook::MARKET_ORDER_PRICE) {
+    if (expected_order[index]->price() == MARKET_ORDER_PRICE) {
       BOOST_REQUIRE_EQUAL(MARKET_ORDER_BID_SORT_PRICE, bid->first);
     } else {
       BOOST_REQUIRE_EQUAL(expected_order[index]->price(), bid->first);
@@ -1700,18 +1703,21 @@ class SharedPtrOrderBook : public OrderBook<SimpleOrderPtr>
 {
   virtual void perform_callback(OrderBook<SimpleOrderPtr>::TypedCallback& cb)
   {
-    switch(cb.type_) {
+    switch(cb.type) {
       case TypedCallback::cb_order_accept:
-        cb.order_->accept();
+        cb.order->accept();
         break;
-      case TypedCallback::cb_order_fill:
-        cb.order_->fill(cb.ref_qty_, cb.ref_cost_, 0);
+      case TypedCallback::cb_order_fill: {
+        Cost fill_cost = cb.fill_price * cb.fill_qty;
+        cb.order->fill(cb.fill_qty, fill_cost, 0);
+        cb.matched_order->fill(cb.fill_qty, fill_cost, 0);
         break;
+      }
       case TypedCallback::cb_order_cancel:
-        cb.order_->cancel();
+        cb.order->cancel();
         break;
       case TypedCallback::cb_order_replace:
-        cb.order_->replace(cb.ref_qty_, cb.ref_price_);
+        cb.order->replace(cb.new_order_qty, cb.new_price);
         break;
       default:
         // Nothing
@@ -1773,65 +1779,6 @@ BOOST_AUTO_TEST_CASE(TestSharedCancelBid)
   // Verify sizes
   BOOST_REQUIRE_EQUAL(0, order_book.bids().size());
   BOOST_REQUIRE_EQUAL(2, order_book.asks().size());
-}
-
-BOOST_AUTO_TEST_CASE(TestPopulateLevels)
-{
-  SimpleOrderBook order_book;
-  SimpleOrder ask6(false, 1254, 300);
-  SimpleOrder ask5(false, 1254, 300);
-  SimpleOrder ask4(false, 1254, 100);
-  SimpleOrder ask3(false, 1252, 400);
-  SimpleOrder ask1(false, 1252, 100);
-  SimpleOrder ask2(false, 1251, 200);
-  SimpleOrder ask0(false, 1251, 300);
-
-  SimpleOrder bid6(true,  1251, 500);
-
-  SimpleOrder bid0(true,  1250, 100);
-  SimpleOrder bid2(true,  1250, 300);
-  SimpleOrder bid4(true,  1248, 100);
-  SimpleOrder bid3(true,  1248, 200);
-  SimpleOrder bid5(true,  1247, 100);
-  SimpleOrder bid1(true,  1246, 200);
-
-  // No match
-  BOOST_REQUIRE(add_and_verify(order_book, &bid0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid2, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid3, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid4, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &bid5, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask0, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask1, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask2, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask3, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask4, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask5, false));
-  BOOST_REQUIRE(add_and_verify(order_book, &ask6, false));
-
-  // Match - complete
-  { BOOST_REQUIRE_NO_THROW(
-    SimpleFillCheck fc1(&bid6, 500, 1251 * 500);
-    SimpleFillCheck fc2(&ask2, 200, 1251 * 200);
-    SimpleFillCheck fc3(&ask0, 300, 1251 * 300);
-    BOOST_REQUIRE(add_and_verify(order_book, &bid6, true, true));
-  ); }
-
-  // Verify depth building
-  DepthLevel level;
-  order_book.populate_bid_depth_level_after(1251, level);
-  BOOST_REQUIRE(verify_depth(level, 1250, 2, 400));
-  order_book.populate_bid_depth_level_after(1250, level);
-  BOOST_REQUIRE(verify_depth(level, 1248, 2, 300));
-  order_book.populate_bid_depth_level_after(1248, level);
-  BOOST_REQUIRE(verify_depth(level, 1247, 1, 100));
-  order_book.populate_bid_depth_level_after(1247, level);
-  BOOST_REQUIRE(verify_depth(level, 1246, 1, 200));
-  order_book.populate_ask_depth_level_after(1251, level);
-  BOOST_REQUIRE(verify_depth(level, 1252, 2, 500));
-  order_book.populate_ask_depth_level_after(1252, level);
-  BOOST_REQUIRE(verify_depth(level, 1254, 3, 700));
 }
 
 BOOST_AUTO_TEST_CASE(TestReplaceSizeIncrease)

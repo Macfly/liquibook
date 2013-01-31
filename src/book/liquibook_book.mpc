@@ -1,4 +1,5 @@
-project : liquibook_lib, liquibook_base {
-  macros += BOOQUID_BOOK_BUILD_DLL  
+project : liquibook_lib {
+  sharedname =
+  staticname = *
 }
 

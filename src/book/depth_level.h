@@ -1,12 +1,15 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #ifndef depth_level_h
 #define depth_level_h
 
-#include "liquibook_book_export.h"
-#include "base/types.h"
+#include "types.h"
 
 namespace liquibook { namespace book {
 
-class LIQUIBOOK_BOOK_Export DepthLevel {
+/// @brief a single level of the limit order book aggregated by price
+class DepthLevel {
 public:
   /// @brief construct
   DepthLevel();
@@ -42,8 +45,14 @@ public:
   /// @return true if the level is now empty
   bool close_order(Quantity qty);
 
+  /// @brief set last changed stamp on this level
   void last_change(ChangeId last_change) { last_change_ = last_change; }
+
+  /// @brief get last change stamp for this level
   ChangeId last_change() const { return last_change_; }
+
+  /// @brief has the level changed since the given stamp?
+  /// @param last_published_change the stamp to compare to
   bool changed_since(ChangeId last_published_change) const;
 
 private:

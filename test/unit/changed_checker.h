@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #include "book/depth.h"
 #include <iostream>
 
@@ -5,6 +8,7 @@ namespace liquibook {
 
 using book::Depth;
 using book::DepthLevel;
+using book::ChangeId;
 
 namespace test {
 
@@ -21,13 +25,15 @@ public:
     depth_.published();
   }
 
-  bool verify_bid_changed(bool l0, bool l1, bool l2, bool l3, bool l4)
+  bool verify_bid_changed(int l0, int l1, int l2, int l3, int l4)
   {
-    return verify_side_changed(depth_.bids(), l0, l1, l2, l3, l4);
+    return verify_side_changed(depth_.bids(), bool(l0 == 1), bool(l1 ==1),
+                               bool(l2 == 1), bool(l3 == 1), bool(l4 == 1));
   }
-  bool verify_ask_changed(bool l0, bool l1, bool l2, bool l3, bool l4)
+  bool verify_ask_changed(int l0, int l1, int l2, int l3, int l4)
   {
-    return verify_side_changed(depth_.asks(), l0, l1, l2, l3, l4);
+    return verify_side_changed(depth_.asks(), bool(l0 == 1), bool(l1 == 1),
+                               bool(l2 == 1), bool(l3 == 1), bool(l4 == 1));
   }
 
   bool verify_bid_stamps(ChangeId l0, ChangeId l1, ChangeId l2, 
@@ -42,16 +48,16 @@ public:
     return verify_side_stamps(depth_.asks(), l0, l1, l2, l3, l4);
   }
 
-  bool verify_bbo_changed(bool bid_changed, bool ask_changed)
+  bool verify_bbo_changed(int bid_changed, int ask_changed)
   {
     bool matched = true;
     ChangeId last_change = depth_.last_published_change();
     
-    if (depth_.bids()->changed_since(last_change) != bid_changed) {
+    if (depth_.bids()->changed_since(last_change) != bool(bid_changed == 1)) {
       std::cout << "best bid changed incorrect" << std::endl;
       matched = false;
     }
-    if (depth_.asks()->changed_since(last_change) != ask_changed) {
+    if (depth_.asks()->changed_since(last_change) != bool(ask_changed == 1)) {
       std::cout << "best ask changed incorrect" << std::endl;
       matched = false;
     }
