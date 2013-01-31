@@ -1,3 +1,6 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE liquibook_Depth
 #include <boost/test/unit_test.hpp>
@@ -13,9 +16,9 @@ typedef Depth<5> SizedDepth;
 typedef test::ChangedChecker<5> ChangedChecker;
 
 bool verify_level(const DepthLevel*& level, 
-                  Price price, 
+                  book::Price price, 
                   uint32_t order_count, 
-                  Quantity aggregate_qty)
+                  book::Quantity aggregate_qty)
 {
   bool matched = true;
   if (price != level->price()) {
@@ -68,7 +71,7 @@ BOOST_AUTO_TEST_CASE(TestAppendBidLevels)
   BOOST_REQUIRE(verify_level(bid, 1235, 2, 600));
   BOOST_REQUIRE(verify_level(bid, 1232, 1, 100));
   ChangedChecker cc(depth);
-  BOOST_REQUIRE(cc.verify_bid_changed(1, 4, 3, 0, 0));
+  BOOST_REQUIRE(cc.verify_bid_changed(1, 1, 1, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestInsertBidLevels)

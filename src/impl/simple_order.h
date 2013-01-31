@@ -1,9 +1,13 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #ifndef simpleorder_h
 #define simpleorder_h
 
-#include "liquibook_impl_export.h"
 #include "book/order.h"
-#include "base/types.h"
+#include "book/types.h"
+
+using namespace liquibook::book;
 
 namespace liquibook { namespace impl {
 
@@ -15,7 +19,8 @@ enum OrderState {
   os_rejected
 };
 
-class LIQUIBOOK_IMPL_Export SimpleOrder : public book::Order {
+/// @brief impelementation of the Order interface for testing purposes.
+class SimpleOrder : public Order {
 public:
   SimpleOrder(bool is_buy,
               Price price,

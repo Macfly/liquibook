@@ -1,16 +1,22 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #ifndef depth_h
 #define depth_h
 
-#include "liquibook_book_export.h"
 #include "depth_level.h"
-#include "base/types.h"
+#include "types.h"
 #include <map>
 #include <cmath>
+#include <string.h>
 
 namespace liquibook { namespace book {
 
+/// @brief container of limit order data aggregated by price.  Designed so that
+///    the depth levels themselves are easily copyable with a single memcpy
+///    when used with a separate callback thread.
 template <int SIZE=5> 
-class LIQUIBOOK_BOOK_Export Depth {
+class Depth {
 public:
   /// @brief construct
   Depth();
@@ -40,6 +46,22 @@ public:
   /// @param qty the open quantity of the order
   /// @param is_bid indicator of bid or ask
   void add_order(Price price, Quantity qty, bool is_bid);
+
+  /// @brief ignore future fill quantity on a side, due to a match at 
+  ///        accept time for an order
+  /// @param qty the open quantity to ignore
+  /// @param is_bid indicator of bid or ask
+  void ignore_fill_qty(Quantity qty, bool is_bid);
+
+  /// @brief handle an order fill
+  /// @param price the price level of the order
+  /// @param open_qty the open quantity of the order
+  /// @param fill_qty the quantity of this fill
+  /// @param is_bid indicator of bid or ask
+  void fill_order(Price price, 
+                  Quantity open_qty, 
+                  Quantity fill_qty, 
+                  bool is_bid);
 
   /// @brief cancel or fill an order
   /// @param price the price level of the order
@@ -90,6 +112,9 @@ private:
   DepthLevel levels_[SIZE*2];
   ChangeId last_change_;
   ChangeId last_published_change_;
+  Quantity ignore_bid_fill_qty_;
+  Quantity ignore_ask_fill_qty_;
+
   typedef std::map<Price, DepthLevel, std::greater<Price> > BidLevelMap;
   typedef std::map<Price, DepthLevel, std::less<Price> > AskLevelMap;
   BidLevelMap excess_bid_levels_;
@@ -119,7 +144,9 @@ private:
 template <int SIZE> 
 Depth<SIZE>::Depth()
 : last_change_(0),
-  last_published_change_(0)
+  last_published_change_(0),
+  ignore_bid_fill_qty_(0),
+  ignore_ask_fill_qty_(0)
 {
   memset(levels_, 0, sizeof(DepthLevel) * SIZE * 2);
 }
@@ -197,6 +224,42 @@ Depth<SIZE>::add_order(Price price, Quantity qty, bool is_bid)
     last_change_ = last_change_copy + 1; // Ensure incremented
     level->add_order(qty);
     level->last_change(last_change_);
+  }
+}
+
+template <int SIZE> 
+inline void
+Depth<SIZE>::ignore_fill_qty(Quantity qty, bool is_bid)
+{
+  if (is_bid) {
+    if (ignore_bid_fill_qty_) {
+      throw std::runtime_error("Unexpected ignore_bid_fill_qty_");
+    }
+    ignore_bid_fill_qty_ = qty;
+  } else {
+    if (ignore_ask_fill_qty_) {
+      throw std::runtime_error("Unexpected ignore_ask_fill_qty_");
+    }
+    ignore_ask_fill_qty_ = qty;
+  }  
+}
+
+template <int SIZE> 
+inline void
+Depth<SIZE>::fill_order(
+  Price price, 
+  Quantity open_qty, 
+  Quantity fill_qty, 
+  bool is_bid)
+{
+  if (is_bid && ignore_bid_fill_qty_) {
+    ignore_bid_fill_qty_ -= fill_qty;
+  } else if ((!is_bid) && ignore_ask_fill_qty_) {
+    ignore_ask_fill_qty_ -= fill_qty;
+  } else if (open_qty == fill_qty) {
+    close_order(price, open_qty, is_bid);
+  } else {
+    change_qty_order(price, -(int32_t)fill_qty, is_bid);
   }
 }
 

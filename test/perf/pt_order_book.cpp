@@ -1,10 +1,17 @@
+// Copyright (c) 2012, 2013 Object Computing, Inc.
+// All rights reserved.
+// See the file license.txt for licensing information.
 #include "impl/simple_order_book.h"
+#include "book/types.h"
 
 #include <iostream>
 #include <stdexcept>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace liquibook;
+using namespace liquibook::book;
+
 typedef impl::SimpleOrderBook<5> DepthOrderBook;
 typedef impl::SimpleOrderBook<1> BboOrderBook;
 typedef book::OrderBook<impl::SimpleOrder*> NoDepthOrderBook;
@@ -69,7 +76,7 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
   
   for (uint32_t i = 0; i <= num_to_try; ++i) {
     bool is_buy((i % 2) == 0);
-    uint delta = is_buy ? 1880 : 1884;
+    uint32_t delta = is_buy ? 1880 : 1884;
     // ASK 1893
     // ASK 1892
     // ASK 1891
@@ -92,9 +99,9 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
     // BID 1881
     // BID 1880
 
-    liquibook::Price price = (rand() % 10) + delta;
+    Price price = (rand() % 10) + delta;
     
-    liquibook::Quantity qty = ((rand() % 10) + 1) * 100;
+    Quantity qty = ((rand() % 10) + 1) * 100;
     orders[i] = new impl::SimpleOrder(is_buy, price, qty);
   }
   orders[num_to_try] = NULL; // Final null
@@ -103,6 +110,9 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
   clock_t stop = start + (dur_sec * CLOCKS_PER_SEC);
 
   int count = run_test(order_book, orders, stop);
+  for (uint32_t i = 0; i <= num_to_try; ++i) {
+    delete orders[i];
+  }
   delete [] orders;
   if (count > 0) {
     std::cout << " - complete!" << std::endl;
@@ -117,7 +127,7 @@ bool build_and_run_test(uint32_t dur_sec, uint32_t num_to_try) {
     return false;
   }
 
-  return count;
+  return count > 0;
 }
 
 int main(int argc, const char* argv[])
